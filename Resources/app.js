@@ -110,6 +110,6 @@ function triggerResize() {
   postToHost({ type: 'resize', width: 600, height: targetHeight });
 }
 
-// Initial Call
+// Initial Call on startup
 detectLinks();
 setTimeout(triggerResize, 200);
