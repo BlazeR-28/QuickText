@@ -1,0 +1,24 @@
+# Build directories
+bin/
+obj/
+publish/
+
+# IDE files
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Custom profile folder for WebView2/Chrome
+.profile/
+_profile/
+/src/QuickText/.profile/
+/src/QuickText/bin/
+/src/QuickText/obj/
+
+# System files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
