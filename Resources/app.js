@@ -251,8 +251,11 @@ function detectLinks() {
   }
   
   linkBar.innerHTML = '';
+  const contentEl = document.getElementById('content');
+  
   if (urlPositions.length > 0) {
     linkBar.style.display = 'flex';
+    contentEl.classList.add('has-links');
     urlPositions.forEach((posInfo, idx) => {
       const a = document.createElement('a');
       a.className = 'link-pill';
@@ -283,19 +286,29 @@ function detectLinks() {
     });
   } else {
     linkBar.style.display = 'none';
+    contentEl.classList.remove('has-links');
   }
 }
 
-// Dynamically resize window based on scrollHeight
+// Dynamically resize window based on content scrollHeight
 function triggerResize() {
-  measurer.textContent = pad.value + '\n';
-  let textareaHeight = Math.max(200, measurer.scrollHeight);
-  pad.style.height = textareaHeight + 'px';
+  const titleHeight = titleBar.offsetHeight;
+  const linkHeight = linkBar.style.display !== 'none' ? linkBar.offsetHeight : 0;
   
-  let targetHeight = document.getElementById('window-frame').offsetHeight;
-  targetHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, targetHeight));
+  // Measure textarea height accurately using a temporary auto height
+  const oldHeight = pad.style.height;
+  pad.style.height = 'auto';
+  const textHeight = Math.max(200, pad.scrollHeight);
+  pad.style.height = oldHeight; 
+  
+  // Total window frame height = title + text + linkbar + padding/border
+  const totalRequiredHeight = titleHeight + textHeight + linkHeight + 24;
+  let targetHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, totalRequiredHeight));
   
   postToHost({ type: 'resize', width: 600, height: targetHeight });
+  
+  // Reset pad height inline style to let flexbox stretch it
+  pad.style.height = '';
 }
 
 // WebView2 message listener from Host
