@@ -58,6 +58,24 @@ exitAppBtn.addEventListener('click', () => {
   postToHost('close');
 });
 
+// Map slider value (0-100) to opacity (0.2-1.0)
+function sliderValueToOpacity(val) {
+  if (val <= 50) {
+    return 0.20 + (val / 50) * 0.30;
+  } else {
+    return 0.50 + ((val - 50) / 50) * 0.50;
+  }
+}
+
+// Map opacity (0.2-1.0) to slider value (0-100)
+function opacityToSliderValue(opacity) {
+  if (opacity <= 0.50) {
+    return Math.round((opacity - 0.20) / 0.30 * 50);
+  } else {
+    return Math.round(50 + (opacity - 0.50) / 0.50 * 50);
+  }
+}
+
 // Toggle settings modal
 function toggleSettings() {
   const isOpen = settingsPanel.classList.toggle('open');
@@ -70,14 +88,16 @@ function toggleSettings() {
     globalHotkeyInput.value = settings.globalHotkey || 'None';
     
     // Set opacity slider value
-    const opPercent = Math.round((settings.opacity || 1.0) * 100);
-    opacitySlider.value = opPercent;
-    opacityValue.textContent = opPercent + '%';
+    const currentOpacity = settings.opacity !== undefined ? settings.opacity : 1.0;
+    opacitySlider.value = opacityToSliderValue(currentOpacity);
+    opacityValue.textContent = Math.round(currentOpacity * 100) + '%';
   } else {
     settingsBtn.classList.remove('active');
     document.getElementById('content').classList.remove('settings-open');
     pad.focus();
   }
+  // Immediately trigger resize to expand/shrink window for settings panel
+  triggerResize();
 }
 
 settingsBtn.addEventListener('click', toggleSettings);
@@ -95,14 +115,15 @@ autosaveToggle.addEventListener('change', () => {
 
 // Opacity Slider handler
 opacitySlider.addEventListener('input', () => {
-  const val = parseInt(opacitySlider.value);
-  opacityValue.textContent = val + '%';
-  postToHost({ type: 'opacity', value: val / 100 });
+  const sliderVal = parseInt(opacitySlider.value);
+  const opacity = sliderValueToOpacity(sliderVal);
+  opacityValue.textContent = Math.round(opacity * 100) + '%';
+  postToHost({ type: 'opacity', value: opacity });
 });
 
 opacitySlider.addEventListener('change', () => {
-  const val = parseInt(opacitySlider.value);
-  settings.opacity = val / 100;
+  const sliderVal = parseInt(opacitySlider.value);
+  settings.opacity = sliderValueToOpacity(sliderVal);
   saveSettings();
 });
 
@@ -329,7 +350,12 @@ function triggerResize() {
   
   // Total window frame height = title + text + linkbar + padding/border
   const totalRequiredHeight = titleHeight + textHeight + linkHeight + 24;
-  let targetHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, totalRequiredHeight));
+  
+  // Settings panel needs at least 430px to display all settings without clipping
+  const isSettingsOpen = settingsPanel.classList.contains('open');
+  const minHeight = isSettingsOpen ? 430 : MIN_HEIGHT;
+  
+  let targetHeight = Math.max(minHeight, Math.min(MAX_HEIGHT, totalRequiredHeight));
   
   postToHost({ type: 'resize', width: 600, height: targetHeight });
   
@@ -352,9 +378,9 @@ if (window.chrome && window.chrome.webview) {
       triggerResize();
       
       // Apply opacity on UI load
-      const opPercent = Math.round((settings.opacity || 1.0) * 100);
-      opacitySlider.value = opPercent;
-      opacityValue.textContent = opPercent + '%';
+      const currentOpacity = settings.opacity !== undefined ? settings.opacity : 1.0;
+      opacitySlider.value = opacityToSliderValue(currentOpacity);
+      opacityValue.textContent = Math.round(currentOpacity * 100) + '%';
     }
   });
 }
