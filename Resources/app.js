@@ -34,6 +34,14 @@ clearBtn.addEventListener('click', () => {
   pad.focus();
   detectLinks();
   triggerResize();
+  
+  clearBtn.classList.add('btn-success');
+  const originalText = clearBtn.textContent;
+  clearBtn.textContent = 'Cleared';
+  setTimeout(() => {
+    clearBtn.textContent = originalText;
+    clearBtn.classList.remove('btn-success');
+  }, 1500);
 });
 
 // Copy all text
