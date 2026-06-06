@@ -38,21 +38,38 @@ public partial class MainWindow : Window
     [DllImport("user32.dll", EntryPoint = "GetWindowLong", SetLastError = true)]
     private static extern int GetWindowLong32(IntPtr hWnd, int nIndex);
 
-    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr", SetLastError = true)]
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
 
     [DllImport("user32.dll", EntryPoint = "SetWindowLong", SetLastError = true)]
     private static extern int SetWindowLong32(IntPtr hWnd, int nIndex, int dwNewLong);
 
-    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr", SetLastError = true)]
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
     private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
     private const int GWL_EXSTYLE = -20;
     private const int WS_EX_LAYERED = 0x80000;
     private const int LWA_ALPHA = 0x2;
+
+    private const int WM_STYLECHANGING = 0x007C;
+
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOZORDER = 0x0004;
+    private const uint SWP_FRAMECHANGED = 0x0020;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct STYLESTRUCT
+    {
+        public uint styleOld;
+        public uint styleNew;
+    }
 
     private static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex)
     {
@@ -103,15 +120,7 @@ public partial class MainWindow : Window
             int cornerPreference = DWMWCP_ROUND;
             DwmSetWindowAttribute(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPreference, sizeof(int));
 
-            // Set WS_EX_LAYERED style initially on source initialized
-            IntPtr exStylePtr = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
-            long exStyle = exStylePtr.ToInt64();
-            SetWindowLongPtr(hWnd, GWL_EXSTYLE, new IntPtr(exStyle | WS_EX_LAYERED));
-
-            // Apply default 100% opacity initially
-            SetLayeredWindowAttributes(hWnd, 0, 255, LWA_ALPHA);
-
-            // Add hook for global hotkeys
+            // Add hook for global hotkeys and style interception
             System.Windows.Interop.HwndSource source = System.Windows.Interop.HwndSource.FromHwnd(hWnd);
             source.AddHook(HwndHook);
         }
@@ -133,10 +142,33 @@ public partial class MainWindow : Window
 
     private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID)
+        try
         {
-            ToggleWindowVisibility();
-            handled = true;
+            if (msg == WM_HOTKEY)
+            {
+                long wp = wParam.ToInt64();
+                if (wp == HOTKEY_ID)
+                {
+                    ToggleWindowVisibility();
+                    handled = true;
+                }
+            }
+            else if (msg == WM_STYLECHANGING)
+            {
+                long wp = wParam.ToInt64();
+                // Check for GWL_EXSTYLE (-20 or 4294967276)
+                if (wp == -20 || wp == 4294967276)
+                {
+                    STYLESTRUCT ss = (STYLESTRUCT)Marshal.PtrToStructure(lParam, typeof(STYLESTRUCT));
+                    ss.styleNew |= (uint)WS_EX_LAYERED;
+                    Marshal.StructureToPtr(ss, lParam, false);
+                    handled = true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error in HwndHook: {ex.Message}");
         }
         return IntPtr.Zero;
     }
@@ -148,6 +180,15 @@ public partial class MainWindow : Window
             var helper = new System.Windows.Interop.WindowInteropHelper(this);
             IntPtr hWnd = helper.Handle;
             if (hWnd == IntPtr.Zero) return;
+
+            IntPtr exStylePtr = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
+            long exStyle = exStylePtr.ToInt64();
+
+            if ((exStyle & WS_EX_LAYERED) == 0)
+            {
+                SetWindowLongPtr(hWnd, GWL_EXSTYLE, new IntPtr(exStyle | WS_EX_LAYERED));
+                SetWindowPos(hWnd, IntPtr.Zero, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+            }
 
             opacity = Math.Max(0.2, Math.Min(1.0, opacity));
             byte alpha = (byte)(opacity * 255);
