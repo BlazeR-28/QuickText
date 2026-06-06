@@ -302,11 +302,9 @@ function triggerResize() {
   const titleHeight = titleBar.offsetHeight;
   const linkHeight = linkBar.style.display !== 'none' ? linkBar.offsetHeight : 0;
   
-  // Measure textarea height accurately using a temporary auto height
-  const oldHeight = pad.style.height;
-  pad.style.height = 'auto';
-  const textHeight = Math.max(200, pad.scrollHeight);
-  pad.style.height = oldHeight; 
+  // Use the hidden measurer to get the exact text height (allows shrinking on text deletion)
+  measurer.textContent = pad.value + '\n';
+  const textHeight = Math.max(200, measurer.scrollHeight);
   
   // Total window frame height = title + text + linkbar + padding/border
   const totalRequiredHeight = titleHeight + textHeight + linkHeight + 24;
