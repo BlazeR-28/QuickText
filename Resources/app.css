@@ -55,12 +55,13 @@ body {
 }
 
 .title-text {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--fg);
-  opacity: 0.65;
+  opacity: 0.95;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
@@ -77,6 +78,9 @@ body {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.30s cubic-bezier(0.16, 1, 0.3, 1);
+  min-width: 72px;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .btn:hover {
@@ -91,6 +95,8 @@ body {
 }
 
 #content {
+  position: relative;
+  z-index: 1;
   height: auto;
   display: flex;
   flex-direction: column;
@@ -104,7 +110,24 @@ body {
   pointer-events: none;
 }
 
+#watermark {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.05); /* very subtle, transparent gray */
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+
 textarea {
+  position: relative;
+  z-index: 1;
   height: auto;
   min-height: 200px;
   width: 100%;
@@ -300,21 +323,34 @@ input:checked + .slider:before {
 
 /* Amber/Orange style for Clear Button */
 #clear-btn {
-  background: rgba(245, 158, 11, 0.05) !important;
-  border-color: rgba(245, 158, 11, 0.15) !important;
-  color: #FBBF24 !important;
+  background: rgba(245, 158, 11, 0.05);
+  border-color: rgba(245, 158, 11, 0.15);
+  color: #FBBF24;
 }
 
 #clear-btn:hover {
-  background: rgba(245, 158, 11, 0.12) !important;
-  border-color: #FBBF24 !important;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15) !important;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: #FBBF24;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+}
+
+/* Premium Cyan/Blue style for Copy Button */
+#copy-btn {
+  background: rgba(56, 189, 248, 0.05);
+  border-color: rgba(56, 189, 248, 0.15);
+  color: #38BDF8;
+}
+
+#copy-btn:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: #38BDF8;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.15);
 }
 
 /* Active Settings Button Style when panel is open */
 #settings-btn.active {
-  background: rgba(152, 139, 240, 0.15) !important;
-  border-color: var(--accent) !important;
-  box-shadow: 0 4px 12px rgba(152, 139, 240, 0.2) !important;
-  color: var(--accent) !important;
+  background: rgba(152, 139, 240, 0.15);
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(152, 139, 240, 0.2);
+  color: var(--accent);
 }
