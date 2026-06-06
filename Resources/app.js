@@ -41,7 +41,7 @@ clearBtn.addEventListener('click', () => {
   setTimeout(() => {
     clearBtn.textContent = originalText;
     clearBtn.classList.remove('btn-success');
-  }, 1500);
+  }, 1000);
 });
 
 // Copy all text
@@ -54,7 +54,7 @@ copyBtn.addEventListener('click', () => {
   setTimeout(() => {
     copyBtn.textContent = originalText;
     copyBtn.classList.remove('btn-success');
-  }, 1500);
+  }, 1000);
 });
 
 // Capture Tab key
