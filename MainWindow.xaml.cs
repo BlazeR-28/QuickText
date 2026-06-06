@@ -19,10 +19,32 @@ public partial class MainWindow : Window
 
     private const int WM_NCLBUTTONDOWN = 0xA1;
     private const int HT_CAPTION = 0x2;
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int pvAttribute, int cbAttribute);
+
+    private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    private const int DWMWCP_ROUND = 2;
+
     public MainWindow()
     {
         InitializeComponent();
         InitializeWebView();
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        try
+        {
+            var helper = new System.Windows.Interop.WindowInteropHelper(this);
+            int cornerPreference = DWMWCP_ROUND;
+            DwmSetWindowAttribute(helper.Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPreference, sizeof(int));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to set DWM corner preference: {ex.Message}");
+        }
     }
 
     private async void InitializeWebView()
