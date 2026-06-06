@@ -13,7 +13,9 @@
         Background="#0E0E12"
         Topmost="True"
         WindowStartupLocation="CenterScreen"
-        ShowInTaskbar="True">
+        ShowInTaskbar="True"
+        ResizeMode="NoResize"
+        BorderThickness="0">
     <Grid>
         <wv2:WebView2 Name="webView" DefaultBackgroundColor="#0E0E12" />
     </Grid>

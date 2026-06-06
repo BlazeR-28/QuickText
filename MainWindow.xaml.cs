@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
@@ -10,6 +11,14 @@ namespace QuickText;
 
 public partial class MainWindow : Window
 {
+    [DllImport("user32.dll")]
+    private static extern bool ReleaseCapture();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+
+    private const int WM_NCLBUTTONDOWN = 0xA1;
+    private const int HT_CAPTION = 0x2;
     public MainWindow()
     {
         InitializeComponent();
@@ -63,7 +72,9 @@ public partial class MainWindow : Window
 
         if (messageText == "\"drag\"")
         {
-            this.DragMove();
+            var helper = new System.Windows.Interop.WindowInteropHelper(this);
+            ReleaseCapture();
+            SendMessage(helper.Handle, WM_NCLBUTTONDOWN, new IntPtr(HT_CAPTION), IntPtr.Zero);
         }
         else if (messageText == "\"close\"")
         {
@@ -93,6 +104,14 @@ public partial class MainWindow : Window
                         if (!string.IsNullOrEmpty(url))
                         {
                             Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+                        }
+                    }
+                    else if (type == "copy")
+                    {
+                        string text = root.GetProperty("text").GetString() ?? "";
+                        if (!string.IsNullOrEmpty(text))
+                        {
+                            Clipboard.SetText(text);
                         }
                     }
                 }
