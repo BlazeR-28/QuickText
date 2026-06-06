@@ -373,3 +373,35 @@ input:checked + .slider:before {
   box-shadow: 0 4px 12px rgba(152, 139, 240, 0.2);
   color: var(--accent);
 }
+
+/* Custom Range Input Slider */
+input[type=range] {
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  margin: 6px 0;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  background: var(--accent);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.1s ease, background 0.1s ease;
+}
+
+input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+  background: var(--accent-hover);
+}
+
+input[type=range]::-webkit-slider-thumb:active {
+  transform: scale(1.1);
+  background: var(--accent);
+}

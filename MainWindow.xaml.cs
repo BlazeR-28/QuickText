@@ -35,12 +35,26 @@ public partial class MainWindow : Window
     private const int HOTKEY_ID = 9000;
     private const int WM_HOTKEY = 0x0312;
 
+    [DllImport("user32.dll")]
+    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
+
+    private const int GWL_EXSTYLE = -20;
+    private const int WS_EX_LAYERED = 0x80000;
+    private const int LWA_ALPHA = 0x2;
+
     public class AppSettings
     {
         public bool autosave { get; set; } = true;
         public string copyHotkey { get; set; } = "CTRL+SHIFT+C";
         public string closeHotkey { get; set; } = "ESCAPE";
         public string globalHotkey { get; set; } = "not set";
+        public double opacity { get; set; } = 1.0;
     }
 
     private readonly string AppDataFolder = Path.Combine(
@@ -93,6 +107,30 @@ public partial class MainWindow : Window
             handled = true;
         }
         return IntPtr.Zero;
+    }
+
+    private void SetWindowOpacity(double opacity)
+    {
+        try
+        {
+            var helper = new System.Windows.Interop.WindowInteropHelper(this);
+            IntPtr hWnd = helper.Handle;
+            if (hWnd == IntPtr.Zero) return;
+
+            int exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+            if ((exStyle & WS_EX_LAYERED) == 0)
+            {
+                SetWindowLong(hWnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
+            }
+
+            opacity = Math.Max(0.2, Math.Min(1.0, opacity));
+            byte alpha = (byte)(opacity * 255);
+            SetLayeredWindowAttributes(hWnd, 0, alpha, LWA_ALPHA);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to set window opacity: {ex.Message}");
+        }
     }
 
     private void ToggleWindowVisibility()
@@ -271,6 +309,14 @@ public partial class MainWindow : Window
                             Clipboard.SetText(text);
                         }
                     }
+                    else if (type == "opacity")
+                    {
+                        if (root.TryGetProperty("value", out var valProp))
+                        {
+                            double opacity = valProp.GetDouble();
+                            SetWindowOpacity(opacity);
+                        }
+                    }
                     else if (type == "ready")
                     {
                         if (!Directory.Exists(AppDataFolder)) Directory.CreateDirectory(AppDataFolder);
@@ -293,6 +339,9 @@ public partial class MainWindow : Window
 
                         // Register global hotkey
                         UpdateGlobalHotkey(settings.globalHotkey);
+
+                        // Apply Opacity
+                        SetWindowOpacity(settings.opacity);
 
                         // Load Saved Text
                         string noteText = "";
@@ -328,6 +377,7 @@ public partial class MainWindow : Window
                                 if (loaded != null)
                                 {
                                     UpdateGlobalHotkey(loaded.globalHotkey);
+                                    SetWindowOpacity(loaded.opacity);
                                 }
                             }
                             catch (Exception ex)
