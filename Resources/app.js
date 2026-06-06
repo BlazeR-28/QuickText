@@ -16,7 +16,7 @@ const closeHotkeyInput = document.getElementById('close-hotkey-input');
 const globalHotkeyInput = document.getElementById('global-hotkey-input');
 
 const MIN_HEIGHT = 300;
-const MAX_HEIGHT = 800; // Will be capped by screen height in C#
+const MAX_HEIGHT = 2000; // Will be capped by screen height in C#
 
 // Local configuration state
 let settings = {
@@ -284,9 +284,16 @@ function detectLinks() {
       });
       linkBar.appendChild(a);
     });
+    
+    // Position watermark above links dynamically based on actual linkbar rendering height
+    setTimeout(() => {
+      const linkBarHeight = linkBar.offsetHeight;
+      document.getElementById('watermark').style.bottom = (linkBarHeight + 24) + 'px';
+    }, 0);
   } else {
     linkBar.style.display = 'none';
     contentEl.classList.remove('has-links');
+    document.getElementById('watermark').style.bottom = '24px';
   }
 }
 
