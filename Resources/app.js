@@ -9,9 +9,11 @@ const measurer = document.getElementById('measurer');
 
 const settingsPanel = document.getElementById('settings-panel');
 const closeSettingsBtn = document.getElementById('close-settings-btn');
+const exitAppBtn = document.getElementById('exit-app-btn');
 const autosaveToggle = document.getElementById('autosave-toggle');
 const copyHotkeyInput = document.getElementById('copy-hotkey-input');
 const closeHotkeyInput = document.getElementById('close-hotkey-input');
+const globalHotkeyInput = document.getElementById('global-hotkey-input');
 
 const MIN_HEIGHT = 300;
 const MAX_HEIGHT = 800; // Will be capped by screen height in C#
@@ -20,7 +22,8 @@ const MAX_HEIGHT = 800; // Will be capped by screen height in C#
 let settings = {
   autosave: true,
   copyHotkey: 'CTRL+SHIFT+C',
-  closeHotkey: 'ESCAPE'
+  closeHotkey: 'ESCAPE',
+  globalHotkey: 'not set'
 };
 
 // Helper to send message to WPF host
@@ -40,6 +43,15 @@ titleBar.addEventListener('mousedown', (e) => {
 
 // Close Application Button
 closeBtn.addEventListener('click', () => {
+  if (settings.globalHotkey && settings.globalHotkey !== 'not set') {
+    postToHost('hide');
+  } else {
+    postToHost('close');
+  }
+});
+
+// Exit App Button inside Settings
+exitAppBtn.addEventListener('click', () => {
   postToHost('close');
 });
 
@@ -52,6 +64,7 @@ function toggleSettings() {
     autosaveToggle.checked = settings.autosave;
     copyHotkeyInput.value = settings.copyHotkey || 'None';
     closeHotkeyInput.value = settings.closeHotkey || 'None';
+    globalHotkeyInput.value = settings.globalHotkey || 'None';
   } else {
     settingsBtn.classList.remove('active');
     document.getElementById('content').classList.remove('settings-open');
@@ -91,6 +104,7 @@ function registerHotkeyInput(inputEl, settingKey) {
 
 registerHotkeyInput(copyHotkeyInput, 'copyHotkey');
 registerHotkeyInput(closeHotkeyInput, 'closeHotkey');
+registerHotkeyInput(globalHotkeyInput, 'globalHotkey');
 
 // Keyboard event listener for shortcuts and recording
 window.addEventListener('keydown', (e) => {
@@ -137,7 +151,11 @@ window.addEventListener('keydown', (e) => {
       if (settingsPanel.classList.contains('open')) {
         toggleSettings();
       } else {
-        postToHost('close');
+        if (settings.globalHotkey && settings.globalHotkey !== 'not set') {
+          postToHost('hide');
+        } else {
+          postToHost('close');
+        }
       }
     }
   }
