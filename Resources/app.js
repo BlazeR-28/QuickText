@@ -92,15 +92,12 @@ function detectLinks() {
 
 // Dynamically resize window based on scrollHeight
 function triggerResize() {
-  // Reset textarea height to small to read true scrollHeight
+  // Auto-grow the textarea
   pad.style.height = 'auto';
+  pad.style.height = pad.scrollHeight + 'px';
   
-  const titleHeight = titleBar.offsetHeight || 31;
-  const contentPadding = 24; // Padding top & bottom of #content
-  const linkHeight = linkBar.style.display !== 'none' ? (linkBar.offsetHeight || 30) : 0;
-  const textareaHeight = pad.scrollHeight;
-  
-  let targetHeight = titleHeight + contentPadding + linkHeight + textareaHeight + 10;
+  // Measure the true height of the container frame
+  let targetHeight = document.getElementById('window-frame').offsetHeight;
   targetHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, targetHeight));
   
   postToHost({ type: 'resize', width: 600, height: targetHeight });

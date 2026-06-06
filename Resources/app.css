@@ -21,11 +21,12 @@ body {
   color: var(--fg);
   font-family: var(--font-family);
   overflow: hidden;
-  height: 100vh;
+  height: auto;
 }
 
 #window-frame {
-  height: 100vh;
+  height: auto;
+  min-height: 300px;
   box-sizing: border-box;
   background-color: rgba(14, 14, 18, 0.85);
   backdrop-filter: var(--blur);
@@ -83,7 +84,7 @@ body {
 }
 
 #content {
-  flex: 1;
+  height: auto;
   display: flex;
   flex-direction: column;
   padding: 12px;
@@ -91,7 +92,8 @@ body {
 }
 
 textarea {
-  flex: 1;
+  height: auto;
+  min-height: 200px;
   width: 100%;
   background: transparent;
   color: var(--fg);
