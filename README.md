@@ -5,6 +5,8 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 [![Style](https://img.shields.io/badge/Design-Glassmorphism-988BF0.svg?style=flat-square)](https://github.com/BlazeR-28/QuickText)
 
+[![Download QuickText](https://img.shields.io/badge/Download-Latest%20Release-blueviolet.svg?style=for-the-badge&logo=github)](https://github.com/BlazeR-28/QuickText/releases/latest)
+
 QuickText is a lightweight, ultra-low latency, standalone Windows scratchpad application designed for developers and power users. Built on a hybrid architecture of a native **WPF C# shell** and an embedded **WebView2 (Chromium)** instance, it combines the styling flexibility of web technology with the raw performance and control of Windows Win32 APIs.
 
 The user interface implements a premium, desaturated slate-purple dark theme with frosted glass (glassmorphism) surfaces, subtle hover micro-interactions, and a clean, icon-free layout structure inspired by modern Apple and Obsidian design philosophies.
