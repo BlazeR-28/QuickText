@@ -45,6 +45,16 @@ public partial class MainWindow : Window
         {
             Debug.WriteLine($"Failed to set DWM corner preference: {ex.Message}");
         }
+
+        try
+        {
+            Uri iconUri = new Uri("pack://application:,,,/Resources/quicktext.ico", UriKind.RelativeOrAbsolute);
+            this.Icon = System.Windows.Media.Imaging.BitmapFrame.Create(iconUri);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to load window icon: {ex.Message}");
+        }
     }
 
     private async void InitializeWebView()

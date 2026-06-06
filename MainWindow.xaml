@@ -6,7 +6,6 @@
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         mc:Ignorable="d"
         Title="QuickText" 
-        Icon="Resources/quicktext.ico"
         Height="300"
         Width="600"
         WindowStyle="None"
