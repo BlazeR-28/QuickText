@@ -78,16 +78,32 @@ function detectLinks() {
   linkBar.innerHTML = '';
   if (uniqueUrls.length > 0) {
     linkBar.style.display = 'flex';
-    uniqueUrls.forEach(url => {
+    uniqueUrls.forEach((url, idx) => {
       const a = document.createElement('a');
       a.className = 'link-pill';
       a.href = url;
       a.target = '_blank';
       
-      // Clean display name
+      // Clean display name and add numbering
       let display = url.replace(/https?:\/\/(www\.)?/, '');
       if (display.length > 20) display = display.substring(0, 18) + '...';
-      a.textContent = display;
+      a.textContent = (idx + 1) + ' · ' + display;
+      
+      // Hover highlighting in lila/purple
+      let originalStart = 0;
+      let originalEnd = 0;
+      a.addEventListener('mouseenter', () => {
+        originalStart = pad.selectionStart;
+        originalEnd = pad.selectionEnd;
+        const pos = pad.value.indexOf(url);
+        if (pos !== -1) {
+          pad.focus();
+          pad.setSelectionRange(pos, pos + url.length);
+        }
+      });
+      a.addEventListener('mouseleave', () => {
+        pad.setSelectionRange(originalStart, originalEnd);
+      });
       
       a.addEventListener('click', (e) => {
         e.preventDefault();

@@ -131,17 +131,7 @@ textarea::-webkit-scrollbar-thumb:hover {
   gap: 6px;
   padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
-  max-height: 50px;
-  overflow-y: auto;
-}
-
-#link-bar::-webkit-scrollbar {
-  width: 4px;
-}
-
-#link-bar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  height: auto;
 }
 
 .link-pill {
@@ -164,4 +154,9 @@ textarea::-webkit-scrollbar-thumb:hover {
   border-color: var(--accent-hover);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(152, 139, 240, 0.2);
+}
+
+textarea::selection {
+  background: rgba(152, 139, 240, 0.35);
+  color: #FFFFFF;
 }
