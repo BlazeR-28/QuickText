@@ -9,9 +9,11 @@
 <body>
   <div id="window-frame">
     <header id="title-bar">
-      <span class="title-text">QuickText</span>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <span class="title-text">QuickText</span>
+        <button id="clear-btn" class="btn" style="background: rgba(239, 68, 68, 0.03); border-color: rgba(239, 68, 68, 0.1); color: #FF8F8F; font-size: 10px; padding: 2px 8px;">Clear</button>
+      </div>
       <div style="display: flex; gap: 6px;">
-        <button id="clear-btn" class="btn" style="background: rgba(255, 255, 255, 0.02); border-color: rgba(255, 255, 255, 0.05); color: #A0A0A5;">Clear</button>
         <button id="copy-btn" class="btn">Copy</button>
         <button id="close-btn" class="btn" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: #FF6B6B;">Close</button>
       </div>
