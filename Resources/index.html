@@ -9,12 +9,13 @@
 <body>
   <div id="window-frame">
     <header id="title-bar">
-      <div style="display: flex; gap: 8px; align-items: center;">
-        <span class="title-text">QuickText</span>
-        <button id="clear-btn" class="btn" style="background: rgba(239, 68, 68, 0.03); border-color: rgba(239, 68, 68, 0.1); color: #FF8F8F; font-size: 10px; padding: 2px 8px;">Clear</button>
+      <div style="display: flex; align-items: center;">
+        <button id="clear-btn" class="btn" style="background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.15); color: #FF8F8F;">Clear</button>
       </div>
+      <span class="title-text">QuickText</span>
       <div style="display: flex; gap: 6px;">
         <button id="copy-btn" class="btn">Copy</button>
+        <button id="settings-btn" class="btn">Settings</button>
         <button id="close-btn" class="btn" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: #FF6B6B;">Close</button>
       </div>
     </header>
@@ -22,6 +23,32 @@
       <textarea id="pad" placeholder="Start typing notes..." autofocus></textarea>
       <footer id="link-bar" style="display: none;"></footer>
     </main>
+    
+    <div id="settings-panel">
+      <div class="settings-header">
+        <span class="settings-title">Settings</span>
+      </div>
+      <div class="settings-content">
+        <div class="setting-item">
+          <span class="setting-label">Autosave &amp; Restore</span>
+          <label class="switch">
+            <input type="checkbox" id="autosave-toggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="setting-item">
+          <span class="setting-label">Copy Shortcut</span>
+          <input type="text" id="copy-hotkey-input" class="hotkey-input" readonly placeholder="Click to record...">
+        </div>
+        <div class="setting-item">
+          <span class="setting-label">Close Shortcut</span>
+          <input type="text" id="close-hotkey-input" class="hotkey-input" readonly placeholder="Click to record...">
+        </div>
+      </div>
+      <div class="settings-footer">
+        <button id="close-settings-btn" class="btn">Close Settings</button>
+      </div>
+    </div>
   </div>
   <div id="measurer" style="position: absolute; visibility: hidden; white-space: pre-wrap; word-wrap: break-word; font-family: 'Inter', -apple-system, sans-serif; font-size: 14px; line-height: 1.5; padding-right: 18px; box-sizing: border-box; width: 576px; top: 0; left: 0; z-index: -100;"></div>
   <!-- SCRIPT_PLACEHOLDER -->

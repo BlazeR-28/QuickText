@@ -26,6 +26,20 @@ public partial class MainWindow : Window
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
     private const int DWMWCP_ROUND = 2;
 
+    public class AppSettings
+    {
+        public bool autosave { get; set; } = true;
+        public string copyHotkey { get; set; } = "CTRL+SHIFT+C";
+        public string closeHotkey { get; set; } = "ESCAPE";
+    }
+
+    private readonly string AppDataFolder = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "QuickText"
+    );
+    private string SettingsPath => Path.Combine(AppDataFolder, "settings.json");
+    private string NotePath => Path.Combine(AppDataFolder, "notes.txt");
+
     public MainWindow()
     {
         InitializeComponent();
@@ -61,11 +75,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            string userDataFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "QuickText",
-                "WebView2_Data"
-            );
+            string userDataFolder = Path.Combine(AppDataFolder, "WebView2_Data");
             
             var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
             await webView.EnsureCoreWebView2Async(env);
@@ -144,6 +154,91 @@ public partial class MainWindow : Window
                         if (!string.IsNullOrEmpty(text))
                         {
                             Clipboard.SetText(text);
+                        }
+                    }
+                    else if (type == "ready")
+                    {
+                        if (!Directory.Exists(AppDataFolder)) Directory.CreateDirectory(AppDataFolder);
+
+                        // Load Settings
+                        AppSettings settings = new AppSettings();
+                        if (File.Exists(SettingsPath))
+                        {
+                            try
+                            {
+                                string settingsJson = File.ReadAllText(SettingsPath);
+                                var loaded = JsonSerializer.Deserialize<AppSettings>(settingsJson);
+                                if (loaded != null) settings = loaded;
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Failed to load settings: {ex.Message}");
+                            }
+                        }
+
+                        // Load Saved Text
+                        string noteText = "";
+                        if (settings.autosave && File.Exists(NotePath))
+                        {
+                            try
+                            {
+                                noteText = File.ReadAllText(NotePath);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Failed to load note: {ex.Message}");
+                            }
+                        }
+
+                        // Post back to WebView
+                        var initObj = new { type = "init", settings = settings, noteText = noteText };
+                        string initJson = JsonSerializer.Serialize(initObj);
+                        webView.CoreWebView2.PostWebMessageAsJson(initJson);
+                    }
+                    else if (type == "save_settings")
+                    {
+                        if (root.TryGetProperty("settings", out var settingsProp))
+                        {
+                            try
+                            {
+                                if (!Directory.Exists(AppDataFolder)) Directory.CreateDirectory(AppDataFolder);
+                                string settingsJson = settingsProp.GetRawText();
+                                File.WriteAllText(SettingsPath, settingsJson);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Failed to save settings: {ex.Message}");
+                            }
+                        }
+                    }
+                    else if (type == "save_note")
+                    {
+                        if (root.TryGetProperty("text", out var textProp))
+                        {
+                            try
+                            {
+                                if (!Directory.Exists(AppDataFolder)) Directory.CreateDirectory(AppDataFolder);
+                                string noteText = textProp.GetString() ?? "";
+                                File.WriteAllText(NotePath, noteText);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Failed to save note: {ex.Message}");
+                            }
+                        }
+                    }
+                    else if (type == "clear_note")
+                    {
+                        try
+                        {
+                            if (File.Exists(NotePath))
+                            {
+                                File.Delete(NotePath);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Failed to delete note: {ex.Message}");
                         }
                     }
                 }

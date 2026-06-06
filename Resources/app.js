@@ -1,15 +1,29 @@
 const pad = document.getElementById('pad');
 const copyBtn = document.getElementById('copy-btn');
 const clearBtn = document.getElementById('clear-btn');
+const settingsBtn = document.getElementById('settings-btn');
 const closeBtn = document.getElementById('close-btn');
 const titleBar = document.getElementById('title-bar');
 const linkBar = document.getElementById('link-bar');
 const measurer = document.getElementById('measurer');
 
+const settingsPanel = document.getElementById('settings-panel');
+const closeSettingsBtn = document.getElementById('close-settings-btn');
+const autosaveToggle = document.getElementById('autosave-toggle');
+const copyHotkeyInput = document.getElementById('copy-hotkey-input');
+const closeHotkeyInput = document.getElementById('close-hotkey-input');
+
 const MIN_HEIGHT = 300;
 const MAX_HEIGHT = 800; // Will be capped by screen height in C#
 
-// Helper to send message to WPF
+// Local configuration state
+let settings = {
+  autosave: true,
+  copyHotkey: 'CTRL+SHIFT+C',
+  closeHotkey: 'ESCAPE'
+};
+
+// Helper to send message to WPF host
 function postToHost(data) {
   if (window.chrome && window.chrome.webview) {
     window.chrome.webview.postMessage(data);
@@ -18,7 +32,8 @@ function postToHost(data) {
 
 // Window Dragging
 titleBar.addEventListener('mousedown', (e) => {
-  if (e.target !== closeBtn && e.target !== copyBtn && e.target !== clearBtn) {
+  const isButton = e.target.closest('.btn') || e.target.closest('input') || e.target.closest('.switch');
+  if (!isButton) {
     postToHost('drag');
   }
 });
@@ -28,12 +43,115 @@ closeBtn.addEventListener('click', () => {
   postToHost('close');
 });
 
+// Settings Overlay Toggles
+settingsBtn.addEventListener('click', () => {
+  settingsPanel.classList.add('open');
+  autosaveToggle.checked = settings.autosave;
+  copyHotkeyInput.value = settings.copyHotkey || 'None';
+  closeHotkeyInput.value = settings.closeHotkey || 'None';
+});
+
+closeSettingsBtn.addEventListener('click', () => {
+  settingsPanel.classList.remove('open');
+  pad.focus();
+});
+
+autosaveToggle.addEventListener('change', () => {
+  settings.autosave = autosaveToggle.checked;
+  saveSettings();
+  if (settings.autosave) {
+    postToHost({ type: 'save_note', text: pad.value });
+  } else {
+    postToHost({ type: 'clear_note' });
+  }
+});
+
+// Hotkey recording UI registration
+let activeHotkeyRecordingInput = null;
+let activeSettingKey = null;
+
+function registerHotkeyInput(inputEl, settingKey) {
+  inputEl.addEventListener('focus', () => {
+    inputEl.value = 'Press keys...';
+    activeHotkeyRecordingInput = inputEl;
+    activeSettingKey = settingKey;
+  });
+  inputEl.addEventListener('blur', () => {
+    inputEl.value = settings[settingKey] || 'None';
+    activeHotkeyRecordingInput = null;
+    activeSettingKey = null;
+  });
+}
+
+registerHotkeyInput(copyHotkeyInput, 'copyHotkey');
+registerHotkeyInput(closeHotkeyInput, 'closeHotkey');
+
+// Keyboard event listener for shortcuts and recording
+window.addEventListener('keydown', (e) => {
+  // If we are actively recording a hotkey
+  if (activeHotkeyRecordingInput) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    let keys = [];
+    if (e.ctrlKey) keys.push('CTRL');
+    if (e.shiftKey) keys.push('SHIFT');
+    if (e.altKey) keys.push('ALT');
+    
+    const mainKey = e.key.toUpperCase();
+    if (mainKey !== 'CONTROL' && mainKey !== 'SHIFT' && mainKey !== 'ALT' && mainKey !== 'OS') {
+      const keyName = mainKey === 'ESCAPE' ? 'ESCAPE' : mainKey;
+      keys.push(keyName);
+      const hotkeyStr = keys.join('+');
+      
+      settings[activeSettingKey] = hotkeyStr;
+      activeHotkeyRecordingInput.value = hotkeyStr;
+      saveSettings();
+      activeHotkeyRecordingInput.blur();
+    }
+    return;
+  }
+
+  // Normal hotkeys evaluation
+  const pressedStr = getPressedHotkeyString(e);
+  if (pressedStr && pressedStr === settings.copyHotkey) {
+    e.preventDefault();
+    triggerCopy();
+  } else if (pressedStr && pressedStr === settings.closeHotkey) {
+    e.preventDefault();
+    postToHost('close');
+  }
+});
+
+function getPressedHotkeyString(e) {
+  let keys = [];
+  if (e.ctrlKey) keys.push('CTRL');
+  if (e.shiftKey) keys.push('SHIFT');
+  if (e.altKey) keys.push('ALT');
+  
+  const mainKey = e.key.toUpperCase();
+  if (mainKey !== 'CONTROL' && mainKey !== 'SHIFT' && mainKey !== 'ALT' && mainKey !== 'OS') {
+    const keyName = mainKey === 'ESCAPE' ? 'ESCAPE' : mainKey;
+    keys.push(keyName);
+    return keys.join('+');
+  }
+  return '';
+}
+
+function saveSettings() {
+  postToHost({ type: 'save_settings', settings: settings });
+}
+
 // Clear all text
 clearBtn.addEventListener('click', () => {
   pad.value = '';
   pad.focus();
   detectLinks();
   triggerResize();
+  
+  if (settings.autosave) {
+    postToHost({ type: 'clear_note' });
+  }
   
   clearBtn.classList.add('btn-success');
   const originalText = clearBtn.textContent;
@@ -44,8 +162,8 @@ clearBtn.addEventListener('click', () => {
   }, 1000);
 });
 
-// Copy all text
-copyBtn.addEventListener('click', () => {
+// Copy action with animation
+function triggerCopy() {
   if (!pad.value) return;
   postToHost({ type: 'copy', text: pad.value });
   const originalText = copyBtn.textContent;
@@ -55,7 +173,9 @@ copyBtn.addEventListener('click', () => {
     copyBtn.textContent = originalText;
     copyBtn.classList.remove('btn-success');
   }, 1000);
-});
+}
+
+copyBtn.addEventListener('click', triggerCopy);
 
 // Capture Tab key
 pad.addEventListener('keydown', function (e) {
@@ -73,6 +193,9 @@ pad.addEventListener('keydown', function (e) {
 pad.addEventListener('input', () => {
   detectLinks();
   triggerResize();
+  if (settings.autosave) {
+    postToHost({ type: 'save_note', text: pad.value });
+  }
 });
 
 function detectLinks() {
@@ -98,12 +221,10 @@ function detectLinks() {
       a.href = posInfo.url;
       a.target = '_blank';
       
-      // Clean display name and add numbering
       let display = posInfo.url.replace(/https?:\/\/(www\.)?/, '');
       if (display.length > 20) display = display.substring(0, 18) + '...';
       a.textContent = (idx + 1) + ' · ' + display;
       
-      // Hover highlighting in lila/purple using exact character coordinates
       let originalStart = 0;
       let originalEnd = 0;
       a.addEventListener('mouseenter', () => {
@@ -129,18 +250,34 @@ function detectLinks() {
 
 // Dynamically resize window based on scrollHeight
 function triggerResize() {
-  // Use hidden measurer to calculate textarea height smoothly
   measurer.textContent = pad.value + '\n';
   let textareaHeight = Math.max(200, measurer.scrollHeight);
   pad.style.height = textareaHeight + 'px';
   
-  // Measure the true height of the container frame
   let targetHeight = document.getElementById('window-frame').offsetHeight;
   targetHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, targetHeight));
   
   postToHost({ type: 'resize', width: 600, height: targetHeight });
 }
 
-// Initial Call on startup
-detectLinks();
-setTimeout(triggerResize, 200);
+// WebView2 message listener from Host
+if (window.chrome && window.chrome.webview) {
+  window.chrome.webview.addEventListener('message', (e) => {
+    const data = e.data;
+    if (data && data.type === 'init') {
+      if (data.settings) {
+        settings = data.settings;
+      }
+      if (data.noteText !== undefined) {
+        pad.value = data.noteText;
+      }
+      detectLinks();
+      triggerResize();
+    }
+  });
+}
+
+// Startup call to signal host we are ready
+setTimeout(() => {
+  postToHost({ type: 'ready' });
+}, 50);

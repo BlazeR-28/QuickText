@@ -25,6 +25,7 @@ body {
 }
 
 #window-frame {
+  position: relative;
   height: auto;
   min-height: 300px;
   box-sizing: border-box;
@@ -38,6 +39,7 @@ body {
 }
 
 #title-bar {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -54,10 +56,15 @@ body {
 
 .title-text {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--muted-fg);
+  color: var(--fg);
+  opacity: 0.65;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .btn {
@@ -151,4 +158,135 @@ textarea::selection {
   border-color: rgba(34, 197, 94, 0.4) !important;
   color: #4ADE80 !important;
   box-shadow: 0 0 12px rgba(34, 197, 94, 0.3) !important;
+}
+
+/* Settings Panel */
+#settings-panel {
+  position: absolute;
+  bottom: -100%;
+  left: 0;
+  width: 100%;
+  height: calc(100% - 37px); /* height below the title-bar */
+  background: rgba(14, 14, 18, 0.96);
+  backdrop-filter: blur(25px);
+  transition: bottom 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  box-sizing: border-box;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 12px 12px;
+}
+
+#settings-panel.open {
+  bottom: 0;
+}
+
+.settings-header {
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 8px;
+}
+
+.settings-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+}
+
+.settings-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.setting-label {
+  font-size: 12px;
+  color: var(--fg);
+  font-weight: 500;
+}
+
+/* Custom Sliding Switch Toggle */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 20px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(255, 255, 255, 0.04);
+  transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 2px;
+  bottom: 2px;
+  background-color: var(--muted-fg);
+  transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: rgba(152, 139, 240, 0.15);
+  border-color: var(--accent);
+}
+
+input:checked + .slider:before {
+  transform: translateX(18px);
+  background-color: var(--accent);
+}
+
+/* Hotkey Input Box */
+.hotkey-input {
+  width: 130px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  font-size: 11px;
+  font-family: var(--font-family);
+  font-weight: 500;
+  padding: 4px 8px;
+  text-align: center;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hotkey-input:focus {
+  border-color: var(--accent);
+  background: rgba(152, 139, 240, 0.05);
+  box-shadow: 0 0 8px rgba(152, 139, 240, 0.25);
+  color: var(--accent);
+}
+
+.settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
 }
