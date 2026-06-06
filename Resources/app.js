@@ -13,6 +13,7 @@ const exitAppBtn = document.getElementById('exit-app-btn');
 const autosaveToggle = document.getElementById('autosave-toggle');
 const copyHotkeyInput = document.getElementById('copy-hotkey-input');
 const closeHotkeyInput = document.getElementById('close-hotkey-input');
+const exitHotkeyInput = document.getElementById('exit-hotkey-input');
 const globalHotkeyInput = document.getElementById('global-hotkey-input');
 const opacitySlider = document.getElementById('opacity-slider');
 const opacityValue = document.getElementById('opacity-value');
@@ -25,6 +26,7 @@ let settings = {
   autosave: true,
   copyHotkey: 'CTRL+SHIFT+C',
   closeHotkey: 'ESCAPE',
+  exitHotkey: 'CTRL+Q',
   globalHotkey: 'not set',
   opacity: 1.0
 };
@@ -85,6 +87,7 @@ function toggleSettings() {
     autosaveToggle.checked = settings.autosave;
     copyHotkeyInput.value = settings.copyHotkey || 'None';
     closeHotkeyInput.value = settings.closeHotkey || 'None';
+    exitHotkeyInput.value = settings.exitHotkey || 'None';
     globalHotkeyInput.value = settings.globalHotkey || 'None';
     
     // Set opacity slider value
@@ -146,6 +149,7 @@ function registerHotkeyInput(inputEl, settingKey) {
 
 registerHotkeyInput(copyHotkeyInput, 'copyHotkey');
 registerHotkeyInput(closeHotkeyInput, 'closeHotkey');
+registerHotkeyInput(exitHotkeyInput, 'exitHotkey');
 registerHotkeyInput(globalHotkeyInput, 'globalHotkey');
 
 // Keyboard event listener for shortcuts and recording
@@ -185,7 +189,10 @@ window.addEventListener('keydown', (e) => {
   // Normal hotkeys evaluation
   const pressedStr = getPressedHotkeyString(e);
   if (pressedStr) {
-    if (settings.copyHotkey !== 'not set' && pressedStr === settings.copyHotkey) {
+    if (settings.exitHotkey !== 'not set' && pressedStr === settings.exitHotkey) {
+      e.preventDefault();
+      postToHost('close');
+    } else if (settings.copyHotkey !== 'not set' && pressedStr === settings.copyHotkey) {
       e.preventDefault();
       triggerCopy();
     } else if (settings.closeHotkey !== 'not set' && pressedStr === settings.closeHotkey) {
@@ -351,9 +358,9 @@ function triggerResize() {
   // Total window frame height = title + text + linkbar + padding/border
   const totalRequiredHeight = titleHeight + textHeight + linkHeight + 24;
   
-  // Settings panel needs at least 430px to display all settings without clipping
+  // Settings panel needs at least 480px to display all settings without clipping
   const isSettingsOpen = settingsPanel.classList.contains('open');
-  const minHeight = isSettingsOpen ? 430 : MIN_HEIGHT;
+  const minHeight = isSettingsOpen ? 480 : MIN_HEIGHT;
   
   let targetHeight = Math.max(minHeight, Math.min(MAX_HEIGHT, totalRequiredHeight));
   
@@ -381,6 +388,9 @@ if (window.chrome && window.chrome.webview) {
       const currentOpacity = settings.opacity !== undefined ? settings.opacity : 1.0;
       opacitySlider.value = opacityToSliderValue(currentOpacity);
       opacityValue.textContent = Math.round(currentOpacity * 100) + '%';
+      
+      // Apply hotkey on UI load
+      exitHotkeyInput.value = settings.exitHotkey || 'None';
     }
   });
 }
