@@ -264,6 +264,40 @@ textarea::selection {
   font-weight: 500;
 }
 
+/* Shortcuts Section & Grid */
+.shortcuts-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shortcuts-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--muted-fg);
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.shortcuts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+}
+
+.shortcut-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.shortcut-label {
+  font-size: 11px;
+  color: var(--fg);
+  font-weight: 500;
+}
+
 /* Custom Sliding Switch Toggle */
 .switch {
   position: relative;
