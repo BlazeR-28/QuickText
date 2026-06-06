@@ -26,11 +26,21 @@ public partial class MainWindow : Window
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
     private const int DWMWCP_ROUND = 2;
 
+    [DllImport("user32.dll")]
+    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+    [DllImport("user32.dll")]
+    private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    private const int HOTKEY_ID = 9000;
+    private const int WM_HOTKEY = 0x0312;
+
     public class AppSettings
     {
         public bool autosave { get; set; } = true;
         public string copyHotkey { get; set; } = "CTRL+SHIFT+C";
         public string closeHotkey { get; set; } = "ESCAPE";
+        public string globalHotkey { get; set; } = "not set";
     }
 
     private readonly string AppDataFolder = Path.Combine(
@@ -54,10 +64,14 @@ public partial class MainWindow : Window
             var helper = new System.Windows.Interop.WindowInteropHelper(this);
             int cornerPreference = DWMWCP_ROUND;
             DwmSetWindowAttribute(helper.Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPreference, sizeof(int));
+
+            // Add hook for global hotkeys
+            System.Windows.Interop.HwndSource source = System.Windows.Interop.HwndSource.FromHwnd(helper.Handle);
+            source.AddHook(HwndHook);
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to set DWM corner preference: {ex.Message}");
+            Debug.WriteLine($"Failed to set DWM corner preference or add hooks: {ex.Message}");
         }
 
         try
@@ -69,6 +83,103 @@ public partial class MainWindow : Window
         {
             Debug.WriteLine($"Failed to load window icon: {ex.Message}");
         }
+    }
+
+    private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID)
+        {
+            ToggleWindowVisibility();
+            handled = true;
+        }
+        return IntPtr.Zero;
+    }
+
+    private void ToggleWindowVisibility()
+    {
+        if (this.Visibility == Visibility.Visible && this.IsActive)
+        {
+            this.Visibility = Visibility.Hidden;
+        }
+        else
+        {
+            this.Visibility = Visibility.Visible;
+            this.Show();
+            this.WindowState = WindowState.Normal;
+            this.Activate();
+            webView.Focus();
+        }
+    }
+
+    private void UpdateGlobalHotkey(string hotkeyStr)
+    {
+        try
+        {
+            var helper = new System.Windows.Interop.WindowInteropHelper(this);
+            IntPtr hWnd = helper.Handle;
+
+            UnregisterHotKey(hWnd, HOTKEY_ID);
+
+            if (string.IsNullOrEmpty(hotkeyStr) || hotkeyStr.Equals("not set", StringComparison.OrdinalIgnoreCase) || hotkeyStr.Equals("None", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            uint modifiers = 0;
+            uint vk = 0;
+
+            string[] parts = hotkeyStr.Split('+');
+            foreach (string part in parts)
+            {
+                string p = part.Trim().ToUpper();
+                if (p == "CTRL" || p == "CONTROL") modifiers |= 0x0002;
+                else if (p == "ALT") modifiers |= 0x0001;
+                else if (p == "SHIFT") modifiers |= 0x0004;
+                else if (p == "WIN") modifiers |= 0x0008;
+                else
+                {
+                    vk = ParseVirtualKey(p);
+                }
+            }
+
+            if (vk != 0)
+            {
+                // Register hotkey (0x4000 = MOD_NOREPEAT)
+                bool success = RegisterHotKey(hWnd, HOTKEY_ID, modifiers | 0x4000, vk);
+                Debug.WriteLine($"RegisterHotKey for '{hotkeyStr}': {success}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error updating global hotkey: {ex.Message}");
+        }
+    }
+
+    private uint ParseVirtualKey(string keyName)
+    {
+        if (keyName.Length == 1)
+        {
+            char c = keyName[0];
+            if (c >= 'A' && c <= 'Z') return (uint)c;
+            if (c >= '0' && c <= '9') return (uint)c;
+        }
+
+        if (keyName.StartsWith("F") && keyName.Length > 1 && int.TryParse(keyName.Substring(1), out int fNum) && fNum >= 1 && fNum <= 12)
+        {
+            return (uint)(0x70 + (fNum - 1));
+        }
+
+        switch (keyName)
+        {
+            case "ESCAPE": return 0x1B;
+            case "SPACE": return 0x20;
+            case "TAB": return 0x09;
+            case "ENTER": return 0x0D;
+            case "BACKSPACE": return 0x08;
+            case "DELETE": return 0x2E;
+        }
+
+        return 0;
     }
 
     private async void InitializeWebView()
@@ -121,6 +232,10 @@ public partial class MainWindow : Window
         else if (messageText == "\"close\"")
         {
             this.Close();
+        }
+        else if (messageText == "\"hide\"")
+        {
+            this.Visibility = Visibility.Hidden;
         }
         else
         {
@@ -176,6 +291,9 @@ public partial class MainWindow : Window
                             }
                         }
 
+                        // Register global hotkey
+                        UpdateGlobalHotkey(settings.globalHotkey);
+
                         // Load Saved Text
                         string noteText = "";
                         if (settings.autosave && File.Exists(NotePath))
@@ -204,6 +322,13 @@ public partial class MainWindow : Window
                                 if (!Directory.Exists(AppDataFolder)) Directory.CreateDirectory(AppDataFolder);
                                 string settingsJson = settingsProp.GetRawText();
                                 File.WriteAllText(SettingsPath, settingsJson);
+
+                                // Re-register global hotkey
+                                var loaded = JsonSerializer.Deserialize<AppSettings>(settingsJson);
+                                if (loaded != null)
+                                {
+                                    UpdateGlobalHotkey(loaded.globalHotkey);
+                                }
                             }
                             catch (Exception ex)
                             {
