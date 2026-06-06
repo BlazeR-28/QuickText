@@ -358,9 +358,9 @@ function triggerResize() {
   // Total window frame height = title + text + linkbar + padding/border
   const totalRequiredHeight = titleHeight + textHeight + linkHeight + 24;
   
-  // Settings panel needs at least 480px to display all settings without clipping
+  // Settings panel needs at least 380px to display all settings without clipping
   const isSettingsOpen = settingsPanel.classList.contains('open');
-  const minHeight = isSettingsOpen ? 480 : MIN_HEIGHT;
+  const minHeight = isSettingsOpen ? 380 : MIN_HEIGHT;
   
   let targetHeight = Math.max(minHeight, Math.min(MAX_HEIGHT, totalRequiredHeight));
   
