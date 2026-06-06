@@ -92,6 +92,7 @@ public partial class MainWindow : Window
         public bool autosave { get; set; } = true;
         public string copyHotkey { get; set; } = "CTRL+SHIFT+C";
         public string closeHotkey { get; set; } = "ESCAPE";
+        public string exitHotkey { get; set; } = "CTRL+Q";
         public string globalHotkey { get; set; } = "not set";
         public double opacity { get; set; } = 1.0;
     }
