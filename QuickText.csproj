@@ -9,6 +9,7 @@
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <ApplicationIcon>Resources\quicktext.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,7 +17,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\**\*" />
+    <EmbeddedResource Include="Resources\**\*" Exclude="Resources\quicktext.ico" />
+    <Resource Include="Resources\quicktext.ico" />
   </ItemGroup>
 
 </Project>
