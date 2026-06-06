@@ -42,10 +42,10 @@ copyBtn.addEventListener('click', () => {
   postToHost({ type: 'copy', text: pad.value });
   const originalText = copyBtn.textContent;
   copyBtn.textContent = 'Copied';
-  copyBtn.style.borderColor = 'var(--accent)';
+  copyBtn.classList.add('btn-success');
   setTimeout(() => {
     copyBtn.textContent = originalText;
-    copyBtn.style.borderColor = '';
+    copyBtn.classList.remove('btn-success');
   }, 1500);
 });
 
@@ -70,36 +70,39 @@ pad.addEventListener('input', () => {
 function detectLinks() {
   const text = pad.value;
   const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const matches = text.match(urlRegex) || [];
   
-  // Deduplicate matches
-  const uniqueUrls = [...new Set(matches)];
+  const urlPositions = [];
+  let match;
+  while ((match = urlRegex.exec(text)) !== null) {
+    urlPositions.push({
+      url: match[0],
+      start: match.index,
+      end: match.index + match[0].length
+    });
+  }
   
   linkBar.innerHTML = '';
-  if (uniqueUrls.length > 0) {
+  if (urlPositions.length > 0) {
     linkBar.style.display = 'flex';
-    uniqueUrls.forEach((url, idx) => {
+    urlPositions.forEach((posInfo, idx) => {
       const a = document.createElement('a');
       a.className = 'link-pill';
-      a.href = url;
+      a.href = posInfo.url;
       a.target = '_blank';
       
       // Clean display name and add numbering
-      let display = url.replace(/https?:\/\/(www\.)?/, '');
+      let display = posInfo.url.replace(/https?:\/\/(www\.)?/, '');
       if (display.length > 20) display = display.substring(0, 18) + '...';
       a.textContent = (idx + 1) + ' · ' + display;
       
-      // Hover highlighting in lila/purple
+      // Hover highlighting in lila/purple using exact character coordinates
       let originalStart = 0;
       let originalEnd = 0;
       a.addEventListener('mouseenter', () => {
         originalStart = pad.selectionStart;
         originalEnd = pad.selectionEnd;
-        const pos = pad.value.indexOf(url);
-        if (pos !== -1) {
-          pad.focus();
-          pad.setSelectionRange(pos, pos + url.length);
-        }
+        pad.focus();
+        pad.setSelectionRange(posInfo.start, posInfo.end);
       });
       a.addEventListener('mouseleave', () => {
         pad.setSelectionRange(originalStart, originalEnd);
@@ -107,7 +110,7 @@ function detectLinks() {
       
       a.addEventListener('click', (e) => {
         e.preventDefault();
-        postToHost({ type: 'open_url', url: url });
+        postToHost({ type: 'open_url', url: posInfo.url });
       });
       linkBar.appendChild(a);
     });

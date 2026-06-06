@@ -105,25 +105,10 @@ textarea {
   line-height: 1.5;
   padding-right: 6px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
-/* Custom Scrollbar */
-textarea::-webkit-scrollbar {
-  width: 6px;
-}
 
-textarea::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-textarea::-webkit-scrollbar-thumb {
-  background: rgba(152, 139, 240, 0.15);
-  border-radius: 10px;
-}
-
-textarea::-webkit-scrollbar-thumb:hover {
-  background: rgba(152, 139, 240, 0.35);
-}
 
 #link-bar {
   display: flex;
@@ -159,4 +144,11 @@ textarea::-webkit-scrollbar-thumb:hover {
 textarea::selection {
   background: rgba(152, 139, 240, 0.35);
   color: #FFFFFF;
+}
+
+.btn-success {
+  background: rgba(34, 197, 94, 0.15) !important;
+  border-color: rgba(34, 197, 94, 0.4) !important;
+  color: #4ADE80 !important;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.3) !important;
 }
