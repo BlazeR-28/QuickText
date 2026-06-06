@@ -37,6 +37,14 @@
             <span class="slider"></span>
           </label>
         </div>
+
+        <div class="setting-item" style="flex-direction: column; align-items: stretch; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span class="setting-label">Opacity</span>
+            <span id="opacity-value" class="setting-label" style="color: var(--accent); font-weight: 600;">100%</span>
+          </div>
+          <input type="range" id="opacity-slider" min="0" max="100" value="100" style="width: 100%;">
+        </div>
         
         <div class="shortcuts-section">
           <div class="shortcuts-title">Shortcuts</div>
@@ -58,14 +66,6 @@
               <input type="text" id="global-hotkey-input" class="hotkey-input" readonly placeholder="Click to record...">
             </div>
           </div>
-        </div>
-
-        <div class="setting-item" style="flex-direction: column; align-items: stretch; gap: 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span class="setting-label">Opacity</span>
-            <span id="opacity-value" class="setting-label" style="color: var(--accent); font-weight: 600;">100%</span>
-          </div>
-          <input type="range" id="opacity-slider" min="0" max="100" value="100" style="width: 100%;">
         </div>
       </div>
       <div class="settings-footer" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
