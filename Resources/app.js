@@ -14,6 +14,8 @@ const autosaveToggle = document.getElementById('autosave-toggle');
 const copyHotkeyInput = document.getElementById('copy-hotkey-input');
 const closeHotkeyInput = document.getElementById('close-hotkey-input');
 const globalHotkeyInput = document.getElementById('global-hotkey-input');
+const opacitySlider = document.getElementById('opacity-slider');
+const opacityValue = document.getElementById('opacity-value');
 
 const MIN_HEIGHT = 300;
 const MAX_HEIGHT = 2000; // Will be capped by screen height in C#
@@ -23,7 +25,8 @@ let settings = {
   autosave: true,
   copyHotkey: 'CTRL+SHIFT+C',
   closeHotkey: 'ESCAPE',
-  globalHotkey: 'not set'
+  globalHotkey: 'not set',
+  opacity: 1.0
 };
 
 // Helper to send message to WPF host
@@ -65,6 +68,11 @@ function toggleSettings() {
     copyHotkeyInput.value = settings.copyHotkey || 'None';
     closeHotkeyInput.value = settings.closeHotkey || 'None';
     globalHotkeyInput.value = settings.globalHotkey || 'None';
+    
+    // Set opacity slider value
+    const opPercent = Math.round((settings.opacity || 1.0) * 100);
+    opacitySlider.value = opPercent;
+    opacityValue.textContent = opPercent + '%';
   } else {
     settingsBtn.classList.remove('active');
     document.getElementById('content').classList.remove('settings-open');
@@ -83,6 +91,19 @@ autosaveToggle.addEventListener('change', () => {
   } else {
     postToHost({ type: 'clear_note' });
   }
+});
+
+// Opacity Slider handler
+opacitySlider.addEventListener('input', () => {
+  const val = parseInt(opacitySlider.value);
+  opacityValue.textContent = val + '%';
+  postToHost({ type: 'opacity', value: val / 100 });
+});
+
+opacitySlider.addEventListener('change', () => {
+  const val = parseInt(opacitySlider.value);
+  settings.opacity = val / 100;
+  saveSettings();
 });
 
 // Hotkey recording UI registration
@@ -302,7 +323,7 @@ function triggerResize() {
   const titleHeight = titleBar.offsetHeight;
   const linkHeight = linkBar.style.display !== 'none' ? linkBar.offsetHeight : 0;
   
-  // Use the hidden measurer to get the exact text height (allows shrinking on text deletion)
+  // Measure textarea height accurately using a temporary auto height
   measurer.textContent = pad.value + '\n';
   const textHeight = Math.max(200, measurer.scrollHeight);
   
@@ -329,6 +350,11 @@ if (window.chrome && window.chrome.webview) {
       }
       detectLinks();
       triggerResize();
+      
+      // Apply opacity on UI load
+      const opPercent = Math.round((settings.opacity || 1.0) * 100);
+      opacitySlider.value = opPercent;
+      opacityValue.textContent = opPercent + '%';
     }
   });
 }
