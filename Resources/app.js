@@ -38,23 +38,29 @@ titleBar.addEventListener('mousedown', (e) => {
   }
 });
 
-// Close Application
+// Close Application Button
 closeBtn.addEventListener('click', () => {
   postToHost('close');
 });
 
-// Settings Overlay Toggles
-settingsBtn.addEventListener('click', () => {
-  settingsPanel.classList.add('open');
-  autosaveToggle.checked = settings.autosave;
-  copyHotkeyInput.value = settings.copyHotkey || 'None';
-  closeHotkeyInput.value = settings.closeHotkey || 'None';
-});
+// Toggle settings modal
+function toggleSettings() {
+  const isOpen = settingsPanel.classList.toggle('open');
+  if (isOpen) {
+    settingsBtn.classList.add('active');
+    document.getElementById('content').classList.add('settings-open');
+    autosaveToggle.checked = settings.autosave;
+    copyHotkeyInput.value = settings.copyHotkey || 'None';
+    closeHotkeyInput.value = settings.closeHotkey || 'None';
+  } else {
+    settingsBtn.classList.remove('active');
+    document.getElementById('content').classList.remove('settings-open');
+    pad.focus();
+  }
+}
 
-closeSettingsBtn.addEventListener('click', () => {
-  settingsPanel.classList.remove('open');
-  pad.focus();
-});
+settingsBtn.addEventListener('click', toggleSettings);
+closeSettingsBtn.addEventListener('click', toggleSettings);
 
 autosaveToggle.addEventListener('change', () => {
   settings.autosave = autosaveToggle.checked;
@@ -93,12 +99,20 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     e.stopPropagation();
     
+    const mainKey = e.key.toUpperCase();
+    if (mainKey === 'BACKSPACE' || mainKey === 'DELETE') {
+      settings[activeSettingKey] = 'not set';
+      activeHotkeyRecordingInput.value = 'not set';
+      saveSettings();
+      activeHotkeyRecordingInput.blur();
+      return;
+    }
+    
     let keys = [];
     if (e.ctrlKey) keys.push('CTRL');
     if (e.shiftKey) keys.push('SHIFT');
     if (e.altKey) keys.push('ALT');
     
-    const mainKey = e.key.toUpperCase();
     if (mainKey !== 'CONTROL' && mainKey !== 'SHIFT' && mainKey !== 'ALT' && mainKey !== 'OS') {
       const keyName = mainKey === 'ESCAPE' ? 'ESCAPE' : mainKey;
       keys.push(keyName);
@@ -114,12 +128,18 @@ window.addEventListener('keydown', (e) => {
 
   // Normal hotkeys evaluation
   const pressedStr = getPressedHotkeyString(e);
-  if (pressedStr && pressedStr === settings.copyHotkey) {
-    e.preventDefault();
-    triggerCopy();
-  } else if (pressedStr && pressedStr === settings.closeHotkey) {
-    e.preventDefault();
-    postToHost('close');
+  if (pressedStr) {
+    if (settings.copyHotkey !== 'not set' && pressedStr === settings.copyHotkey) {
+      e.preventDefault();
+      triggerCopy();
+    } else if (settings.closeHotkey !== 'not set' && pressedStr === settings.closeHotkey) {
+      e.preventDefault();
+      if (settingsPanel.classList.contains('open')) {
+        toggleSettings();
+      } else {
+        postToHost('close');
+      }
+    }
   }
 });
 
