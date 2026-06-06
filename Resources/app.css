@@ -126,9 +126,6 @@ html, body {
   transition: bottom 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-#content.has-links #watermark {
-  bottom: 75px; /* Slide up above link pills */
-}
 
 textarea {
   position: relative;
