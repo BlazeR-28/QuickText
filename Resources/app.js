@@ -4,7 +4,7 @@ const closeBtn = document.getElementById('close-btn');
 const titleBar = document.getElementById('title-bar');
 const linkBar = document.getElementById('link-bar');
 
-const MIN_HEIGHT = 200;
+const MIN_HEIGHT = 300;
 const MAX_HEIGHT = 800; // Will be capped by screen height in C#
 
 // Helper to send message to WPF
@@ -27,20 +27,16 @@ closeBtn.addEventListener('click', () => {
 });
 
 // Copy all text
-copyBtn.addEventListener('click', async () => {
+copyBtn.addEventListener('click', () => {
   if (!pad.value) return;
-  try {
-    await navigator.clipboard.writeText(pad.value);
-    const originalText = copyBtn.textContent;
-    copyBtn.textContent = 'Copied';
-    copyBtn.style.borderColor = 'var(--accent)';
-    setTimeout(() => {
-      copyBtn.textContent = originalText;
-      copyBtn.style.borderColor = '';
-    }, 1500);
-  } catch (err) {
-    console.error('Failed to copy', err);
-  }
+  postToHost({ type: 'copy', text: pad.value });
+  const originalText = copyBtn.textContent;
+  copyBtn.textContent = 'Copied';
+  copyBtn.style.borderColor = 'var(--accent)';
+  setTimeout(() => {
+    copyBtn.textContent = originalText;
+    copyBtn.style.borderColor = '';
+  }, 1500);
 });
 
 // Capture Tab key
