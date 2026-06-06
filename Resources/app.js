@@ -1,8 +1,10 @@
 const pad = document.getElementById('pad');
 const copyBtn = document.getElementById('copy-btn');
+const clearBtn = document.getElementById('clear-btn');
 const closeBtn = document.getElementById('close-btn');
 const titleBar = document.getElementById('title-bar');
 const linkBar = document.getElementById('link-bar');
+const measurer = document.getElementById('measurer');
 
 const MIN_HEIGHT = 300;
 const MAX_HEIGHT = 800; // Will be capped by screen height in C#
@@ -16,7 +18,7 @@ function postToHost(data) {
 
 // Window Dragging
 titleBar.addEventListener('mousedown', (e) => {
-  if (e.target !== closeBtn && e.target !== copyBtn) {
+  if (e.target !== closeBtn && e.target !== copyBtn && e.target !== clearBtn) {
     postToHost('drag');
   }
 });
@@ -24,6 +26,14 @@ titleBar.addEventListener('mousedown', (e) => {
 // Close Application
 closeBtn.addEventListener('click', () => {
   postToHost('close');
+});
+
+// Clear all text
+clearBtn.addEventListener('click', () => {
+  pad.value = '';
+  pad.focus();
+  detectLinks();
+  triggerResize();
 });
 
 // Copy all text
@@ -92,9 +102,10 @@ function detectLinks() {
 
 // Dynamically resize window based on scrollHeight
 function triggerResize() {
-  // Auto-grow the textarea
-  pad.style.height = 'auto';
-  pad.style.height = pad.scrollHeight + 'px';
+  // Use hidden measurer to calculate textarea height smoothly
+  measurer.textContent = pad.value + '\n';
+  let textareaHeight = Math.max(200, measurer.scrollHeight);
+  pad.style.height = textareaHeight + 'px';
   
   // Measure the true height of the container frame
   let targetHeight = document.getElementById('window-frame').offsetHeight;
