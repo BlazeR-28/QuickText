@@ -9,12 +9,12 @@
         Height="300" 
         Width="600"
         WindowStyle="None"
-        AllowsTransparency="True"
-        Background="Transparent"
+        AllowsTransparency="False"
+        Background="#0E0E12"
         Topmost="True"
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="True">
     <Grid>
-        <wv2:WebView2 Name="webView" DefaultBackgroundColor="Transparent" />
+        <wv2:WebView2 Name="webView" DefaultBackgroundColor="#0E0E12" />
     </Grid>
 </Window>
