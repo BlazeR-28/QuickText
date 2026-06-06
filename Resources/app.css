@@ -96,6 +96,12 @@ body {
   flex-direction: column;
   padding: 12px;
   overflow: hidden;
+  transition: opacity 0.3s ease;
+}
+
+#content.settings-open {
+  opacity: 0.15;
+  pointer-events: none;
 }
 
 textarea {
@@ -113,6 +119,7 @@ textarea {
   padding-right: 6px;
   box-sizing: border-box;
   overflow: hidden;
+  caret-color: var(--accent);
 }
 
 
@@ -289,4 +296,25 @@ input:checked + .slider:before {
   display: flex;
   justify-content: flex-end;
   margin-top: 12px;
+}
+
+/* Amber/Orange style for Clear Button */
+#clear-btn {
+  background: rgba(245, 158, 11, 0.05) !important;
+  border-color: rgba(245, 158, 11, 0.15) !important;
+  color: #FBBF24 !important;
+}
+
+#clear-btn:hover {
+  background: rgba(245, 158, 11, 0.12) !important;
+  border-color: #FBBF24 !important;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15) !important;
+}
+
+/* Active Settings Button Style when panel is open */
+#settings-btn.active {
+  background: rgba(152, 139, 240, 0.15) !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 4px 12px rgba(152, 139, 240, 0.2) !important;
+  color: var(--accent) !important;
 }
