@@ -3,11 +3,11 @@
 [![Framework](https://img.shields.io/badge/.NET-9.0--windows-purple.svg?style=flat-square)](https://dotnet.microsoft.com/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-blue.svg?style=flat-square)](https://www.microsoft.com/windows)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
-[![Style](https://img.shields.io/badge/Design-Liquid%20Glass-988BF0.svg?style=flat-square)](https://github.com/BlazeR-28/QuickText)
+[![Style](https://img.shields.io/badge/Design-Glassmorphism-988BF0.svg?style=flat-square)](https://github.com/BlazeR-28/QuickText)
 
 QuickText is a lightweight, ultra-low latency, standalone Windows scratchpad application designed for developers and power users. Built on a hybrid architecture of a native **WPF C# shell** and an embedded **WebView2 (Chromium)** instance, it combines the styling flexibility of web technology with the raw performance and control of Windows Win32 APIs.
 
-The user interface strictly implements the **Liquid Glass Design System**—a desaturated slate-purple dark aesthetic featuring frosted glass surfaces, subtle hover micro-interactions, and pure, icon-free layout structures inspired by high-end Apple and Obsidian aesthetics.
+The user interface implements a premium, desaturated slate-purple dark theme with frosted glass (glassmorphism) surfaces, subtle hover micro-interactions, and a clean, icon-free layout structure inspired by modern Apple and Obsidian design philosophies.
 
 ---
 
@@ -23,7 +23,7 @@ The user interface strictly implements the **Liquid Glass Design System**—a de
 
 ## ✨ Core Features
 
-### 🎨 Premium UI/UX (Liquid Glass)
+### 🎨 Premium UI/UX (Glassmorphism)
 * **Frosted Glassmorphism:** Fully transparent/translucent window styling utilizing Windows DWM composition.
 * **Slate-Purple Caret & Selection:** Custom-tailored text input styling matching the active theme color tokens.
 * **Flexbox Layout:** A fixed title bar and footer that remain visible, restricting scrollbars exclusively to the notepad text area.
