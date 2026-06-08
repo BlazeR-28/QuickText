@@ -42,7 +42,7 @@ The user interface implements a premium, desaturated slate-purple dark theme wit
 * **Autosave & Auto-Restore:** Notepad content is written to disk in real-time and automatically restored on next startup.
 * **Tab Insertion:** Intercepts the `Tab` key to insert literal `\t` characters instead of shifting focus to other UI controls.
 * **Copy Feedback:** Single-click Copy button with a temporary green success glow animation.
-* **Clear Animation:** Amber-styled Clear button with a success confirmation state that wipes content and shrinks the window back to its default 300px height.
+* **Clear Animation:** Amber-styled Clear button with a success confirmation state that wipes content and shrinks the window back to its configured minimum height.
 * **Reactive Link Pills:** Automatically scans your notes for URLs in real-time, displaying them as clickable pills at the bottom. Clicking a pill opens the URL in your default system browser.
 
 ---
