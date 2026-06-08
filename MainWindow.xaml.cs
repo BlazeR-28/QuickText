@@ -95,6 +95,9 @@ public partial class MainWindow : Window
         public string exitHotkey { get; set; } = "CTRL+Q";
         public string globalHotkey { get; set; } = "not set";
         public double opacity { get; set; } = 1.0;
+        public int minWidth { get; set; } = 600;
+        public int minHeight { get; set; } = 300;
+        public int maxHeight { get; set; } = 2000;
     }
 
     private readonly string AppDataFolder = Path.Combine(

@@ -17,9 +17,9 @@ const exitHotkeyInput = document.getElementById('exit-hotkey-input');
 const globalHotkeyInput = document.getElementById('global-hotkey-input');
 const opacitySlider = document.getElementById('opacity-slider');
 const opacityValue = document.getElementById('opacity-value');
-
-const MIN_HEIGHT = 300;
-const MAX_HEIGHT = 2000; // Will be capped by screen height in C#
+const minWidthInput = document.getElementById('min-width-input');
+const minHeightInput = document.getElementById('min-height-input');
+const maxHeightInput = document.getElementById('max-height-input');
 
 // Local configuration state
 let settings = {
@@ -28,7 +28,10 @@ let settings = {
   closeHotkey: 'ESCAPE',
   exitHotkey: 'CTRL+Q',
   globalHotkey: 'not set',
-  opacity: 1.0
+  opacity: 1.0,
+  minWidth: 600,
+  minHeight: 300,
+  maxHeight: 2000
 };
 
 // Helper to send message to WPF host
@@ -94,6 +97,11 @@ function toggleSettings() {
     const currentOpacity = settings.opacity !== undefined ? settings.opacity : 1.0;
     opacitySlider.value = opacityToSliderValue(currentOpacity);
     opacityValue.textContent = Math.round(currentOpacity * 100) + '%';
+
+    // Set window size values
+    minWidthInput.value = settings.minWidth !== undefined ? settings.minWidth : 600;
+    minHeightInput.value = settings.minHeight !== undefined ? settings.minHeight : 300;
+    maxHeightInput.value = settings.maxHeight !== undefined ? settings.maxHeight : 2000;
   } else {
     settingsBtn.classList.remove('active');
     document.getElementById('content').classList.remove('settings-open');
@@ -129,6 +137,45 @@ opacitySlider.addEventListener('change', () => {
   settings.opacity = sliderValueToOpacity(sliderVal);
   saveSettings();
 });
+
+// Window Size limits change handler
+function handleSizeChange() {
+  let minW = parseInt(minWidthInput.value) || 600;
+  let minH = parseInt(minHeightInput.value) || 300;
+  let maxH = parseInt(maxHeightInput.value) || 2000;
+
+  // Enforce bounds:
+  // - minWidth: 400 to 1920
+  // - minHeight: 150 to 1080
+  // - maxHeight: 300 to 2000
+  minW = Math.max(400, Math.min(1920, minW));
+  minH = Math.max(150, Math.min(1080, minH));
+  maxH = Math.max(300, Math.min(2000, maxH));
+
+  // Ensure minHeight <= maxHeight
+  if (minH > maxH) {
+    if (this === minHeightInput) {
+      maxH = minH;
+    } else {
+      minH = maxH;
+    }
+  }
+
+  minWidthInput.value = minW;
+  minHeightInput.value = minH;
+  maxHeightInput.value = maxH;
+
+  settings.minWidth = minW;
+  settings.minHeight = minH;
+  settings.maxHeight = maxH;
+
+  saveSettings();
+  triggerResize();
+}
+
+minWidthInput.addEventListener('change', handleSizeChange);
+minHeightInput.addEventListener('change', handleSizeChange);
+maxHeightInput.addEventListener('change', handleSizeChange);
 
 // Hotkey recording UI registration
 let activeHotkeyRecordingInput = null;
@@ -351,6 +398,11 @@ function triggerResize() {
   const titleHeight = titleBar.offsetHeight;
   const linkHeight = linkBar.style.display !== 'none' ? linkBar.offsetHeight : 0;
   
+  const width = settings.minWidth !== undefined ? settings.minWidth : 600;
+  
+  // Set measurer width dynamically to match actual textarea width
+  measurer.style.width = (width - 24) + 'px';
+  
   // Measure textarea height accurately using a temporary auto height
   measurer.textContent = pad.value + '\n';
   const textHeight = Math.max(200, measurer.scrollHeight);
@@ -358,13 +410,16 @@ function triggerResize() {
   // Total window frame height = title + text + linkbar + padding/border
   const totalRequiredHeight = titleHeight + textHeight + linkHeight + 24;
   
-  // Settings panel needs at least 380px to display all settings without clipping
+  // Settings panel needs at least 450px to display all settings without clipping
   const isSettingsOpen = settingsPanel.classList.contains('open');
-  const minHeight = isSettingsOpen ? 380 : MIN_HEIGHT;
+  const minHeightVal = settings.minHeight !== undefined ? settings.minHeight : 300;
+  const maxHeightVal = settings.maxHeight !== undefined ? settings.maxHeight : 2000;
   
-  let targetHeight = Math.max(minHeight, Math.min(MAX_HEIGHT, totalRequiredHeight));
+  const minHeight = isSettingsOpen ? 450 : minHeightVal;
   
-  postToHost({ type: 'resize', width: 600, height: targetHeight });
+  let targetHeight = Math.max(minHeight, Math.min(maxHeightVal, totalRequiredHeight));
+  
+  postToHost({ type: 'resize', width: width, height: targetHeight });
   
   // Reset pad height inline style to let flexbox stretch it
   pad.style.height = '';
@@ -377,6 +432,9 @@ if (window.chrome && window.chrome.webview) {
     if (data && data.type === 'init') {
       if (data.settings) {
         settings = data.settings;
+        if (settings.minWidth === undefined) settings.minWidth = 600;
+        if (settings.minHeight === undefined) settings.minHeight = 300;
+        if (settings.maxHeight === undefined) settings.maxHeight = 2000;
       }
       if (data.noteText !== undefined) {
         pad.value = data.noteText;
