@@ -145,10 +145,10 @@ function handleSizeChange() {
   let maxH = parseInt(maxHeightInput.value) || 2000;
 
   // Enforce bounds:
-  // - minWidth: 400 to 1920
+  // - minWidth: 500 to 1920
   // - minHeight: 150 to 1080
   // - maxHeight: 300 to 2000
-  minW = Math.max(400, Math.min(1920, minW));
+  minW = Math.max(500, Math.min(1920, minW));
   minH = Math.max(150, Math.min(1080, minH));
   maxH = Math.max(300, Math.min(2000, maxH));
 
@@ -410,12 +410,12 @@ function triggerResize() {
   // Total window frame height = title + text + linkbar + padding/border
   const totalRequiredHeight = titleHeight + textHeight + linkHeight + 24;
   
-  // Settings panel needs at least 450px to display all settings without clipping
+  // Settings panel needs at least 500px to display all settings without clipping
   const isSettingsOpen = settingsPanel.classList.contains('open');
   const minHeightVal = settings.minHeight !== undefined ? settings.minHeight : 300;
   const maxHeightVal = settings.maxHeight !== undefined ? settings.maxHeight : 2000;
   
-  const minHeight = isSettingsOpen ? 450 : minHeightVal;
+  const minHeight = isSettingsOpen ? 500 : minHeightVal;
   
   let targetHeight = Math.max(minHeight, Math.min(maxHeightVal, totalRequiredHeight));
   
