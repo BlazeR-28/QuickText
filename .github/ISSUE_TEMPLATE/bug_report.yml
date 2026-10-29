@@ -1,0 +1,42 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: QuickText version
+      description: Shown at the bottom of the settings panel.
+      placeholder: "2.0.0"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+  - type: dropdown
+    id: variant
+    attributes:
+      label: Which download?
+      options:
+        - QuickText.exe (self-contained)
+        - QuickText-needs-dotnet.exe
+        - Built from source
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: crash.log
+      description: If QuickText crashed, paste the end of `%LOCALAPPDATA%\QuickText\crash.log`.
+      render: text
