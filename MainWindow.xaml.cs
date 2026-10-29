@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private const int GlobalHotkeyId = 9000;
     private const double SettingsMinHeight = 500;
     private const int MaxPills = 6;
+    private const double MinOpacityPercent = 20;
 
     private static readonly Regex UrlRegex = new(@"https?://[^\s]+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
@@ -340,6 +341,8 @@ public partial class MainWindow : Window
             PillPanel.Children.Add(pill);
         }
 
+        MadeByLabel.Visibility = found.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
         if (found.Count > MaxPills)
         {
             PillPanel.Children.Add(new TextBlock
@@ -435,6 +438,14 @@ public partial class MainWindow : Window
     private void OnOpacityChanged(double percent)
     {
         if (_loadingUi) return;
+
+        // The bar spans 0-100 so 50% sits in the middle, but a nearly invisible window is a trap: stop at 20%.
+        if (percent < MinOpacityPercent)
+        {
+            OpacitySlider.Value = MinOpacityPercent;
+            return;
+        }
+
         _s.Opacity = percent / 100;
         OpacityLabel.Text = $"{Math.Round(percent)}%";
         NativeMethods.SetWindowOpacity(_hwnd, _s.Opacity);

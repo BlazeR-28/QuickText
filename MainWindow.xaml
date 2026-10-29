@@ -42,7 +42,7 @@
         </Grid>
 
         <!-- Editor -->
-        <Grid Grid.Row="1" Margin="10,0,6,0">
+        <Grid Grid.Row="1" Margin="0,0,6,0">
             <TextBox x:Name="Pad" Style="{StaticResource PadStyle}"
                      Background="Transparent" BorderThickness="0"
                      Foreground="{StaticResource FgBrush}"
@@ -54,7 +54,7 @@
                      TextBlock.LineHeight="21" TextBlock.LineStackingStrategy="BlockLineHeight"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"/>
             <!-- Empty-note placeholder doubles as the "how do I get this window back" hint -->
-            <StackPanel Margin="8,2,8,0" IsHitTestVisible="False" VerticalAlignment="Top">
+            <StackPanel Margin="18,2,8,0" IsHitTestVisible="False" VerticalAlignment="Top">
                 <StackPanel.Style>
                     <Style TargetType="StackPanel">
                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -78,6 +78,9 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <WrapPanel x:Name="PillPanel" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,-4"/>
+            <!-- Signature: sits where the link pills go and steps aside as soon as there are links -->
+            <TextBlock x:Name="MadeByLabel" Grid.Column="0" Text="made by BlazeR" FontSize="11"
+                       Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center" IsHitTestVisible="False"/>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
                 <Button x:Name="ClearBtn" Style="{StaticResource ChipButton}" Content="Clear"
                         ToolTip="Clear the note (Ctrl+Z brings it back)" MinWidth="64"/>
@@ -109,7 +112,7 @@
                         <TextBlock x:Name="OpacityLabel" Text="100%" FontSize="12" FontWeight="SemiBold"
                                    Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
                     </Grid>
-                    <Slider x:Name="OpacitySlider" Minimum="20" Maximum="100" Margin="0,0,0,18"/>
+                    <Slider x:Name="OpacitySlider" Minimum="0" Maximum="100" Margin="0,0,0,18"/>
 
                     <TextBlock Text="SHORTCUTS" FontSize="10" FontWeight="SemiBold"
                                Foreground="{StaticResource MutedBrush}" Margin="0,0,0,8"/>
