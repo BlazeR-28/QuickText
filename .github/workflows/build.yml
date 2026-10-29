@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - name: Build (Debug and Release)
+      - name: Build (Debug and Release, warnings are errors)
         run: |
-          dotnet build -c Debug --nologo
-          dotnet build -c Release --nologo
+          dotnet build QuickText.sln -c Debug --nologo -warnaserror
+          dotnet build QuickText.sln -c Release --nologo -warnaserror

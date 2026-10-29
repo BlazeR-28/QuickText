@@ -74,8 +74,8 @@ Set the environment variable `QUICKTEXT_DATA_DIR` to a folder to keep all of it 
 Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0):
 
 ```powershell
-dotnet publish -c Release -o out            # self-contained single exe
-dotnet publish -c Release -p:SelfContained=false -o out-small   # needs the .NET runtime
+dotnet publish src/QuickText -c Release -o out            # self-contained single exe
+dotnet publish src/QuickText -c Release -p:SelfContained=false -o out-small   # needs the .NET runtime
 ```
 
 Debug builds use `%LOCALAPPDATA%\QuickText-dev`, so development never touches your real notes. Pushing a tag like `v2.0.0` makes GitHub Actions build both variants and attach them to a release.

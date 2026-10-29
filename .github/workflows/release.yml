@@ -1,9 +1,11 @@
 name: Release
 
-# Push a tag such as v2.0.0 and this builds both variants and attaches them to a GitHub release.
+# Push a tag such as v2.0.1 and this builds both variants and attaches them to a GitHub release.
+# Run it by hand (Actions tab) to test the pipeline: it then only uploads the files as a build artifact.
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -19,11 +21,11 @@ jobs:
 
       # Runs on any Windows 10/11 without installing anything (about 120 MB).
       - name: Publish self-contained
-        run: dotnet publish -c Release -o out/full --nologo
+        run: dotnet publish src/QuickText/QuickText.csproj -c Release -o out/full --nologo
 
       # Tiny (about 0.2 MB), needs the .NET 10 Desktop Runtime.
       - name: Publish framework-dependent
-        run: dotnet publish -c Release -p:SelfContained=false -o out/small --nologo
+        run: dotnet publish src/QuickText/QuickText.csproj -c Release -p:SelfContained=false -o out/small --nologo
 
       - name: Collect assets
         shell: pwsh
@@ -37,8 +39,17 @@ jobs:
           Get-Content dist/SHA256SUMS.txt
 
       - name: Create release
+        if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ github.ref_name }}" dist/* --title "QuickText ${{ github.ref_name }}" --generate-notes
+
+      - name: Upload test artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickText-test-build
+          path: dist/*
+          retention-days: 3
