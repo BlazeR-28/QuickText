@@ -1,120 +1,87 @@
-# QuickText 📝💎
+# QuickText
 
-[![Framework](https://img.shields.io/badge/.NET-9.0--windows-purple.svg?style=flat-square)](https://dotnet.microsoft.com/)
-[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-blue.svg?style=flat-square)](https://www.microsoft.com/windows)
-[![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
-[![Style](https://img.shields.io/badge/Design-Glassmorphism-988BF0.svg?style=flat-square)](https://github.com/BlazeR-28/QuickText)
+[![Build](https://github.com/BlazeR-28/QuickText/actions/workflows/build.yml/badge.svg)](https://github.com/BlazeR-28/QuickText/actions/workflows/build.yml)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-555555.svg?style=flat-square)](https://www.microsoft.com/windows)
+[![License](https://img.shields.io/badge/License-MIT-555555.svg?style=flat-square)](LICENSE)
 
-[![Download QuickText](https://img.shields.io/badge/Download-Latest%20Release-blueviolet.svg?style=for-the-badge&logo=github)](https://github.com/BlazeR-28/QuickText/releases/latest)
+[![Download QuickText](https://img.shields.io/badge/Download-Latest%20Release-E2AD3B.svg?style=for-the-badge&logo=github&logoColor=1B1A18&labelColor=1B1A18)](https://github.com/BlazeR-28/QuickText/releases/latest)
 
-QuickText is a lightweight, ultra-low latency, standalone Windows scratchpad application designed for developers and power users. Built on a hybrid architecture of a native **WPF C# shell** and an embedded **WebView2 (Chromium)** instance, it combines the styling flexibility of web technology with the raw performance and control of Windows Win32 APIs.
+A small scratchpad for Windows. Press a shortcut, jot something down, copy it, press the shortcut again. QuickText stays in the background, uses little memory and is built for short, temporary notes: collecting text from several websites, rewriting a paragraph, drafting a prompt.
 
-The user interface implements a premium, desaturated slate-purple dark theme with frosted glass (glassmorphism) surfaces, subtle hover micro-interactions, and a clean, icon-free layout structure inspired by modern Apple and Obsidian design philosophies.
+It is plain text only. No tabs, no history, no search, no account, no network access.
 
----
+## Install
 
-## 📖 Table of Contents
-- [Core Features](#-core-features)
-- [Keyboard Shortcuts Reference](#-keyboard-shortcuts-reference)
-- [Technical Architecture](#-technical-architecture)
-- [Local Storage & Configuration](#-local-storage--configuration)
-- [Prerequisites & Build Instructions](#-prerequisites--build-instructions)
-- [License](#-license)
+1. Download **`QuickText.exe`** from the [latest release](https://github.com/BlazeR-28/QuickText/releases/latest).
+2. Double-click it. That is all: nothing to install, no extra runtime needed.
 
----
+Windows may show a blue "Windows protected your PC" box, because the file is not code-signed. Click **More info**, then **Run anyway**. You can compare the file with `SHA256SUMS.txt` from the release if you want to be sure it is the original.
 
-## ✨ Core Features
+Prefer a tiny download? `QuickText-needs-dotnet.exe` is about 0.2 MB but needs the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0/runtime) installed.
 
-### 🎨 Premium UI/UX (Glassmorphism)
-* **Frosted Glassmorphism:** Fully transparent/translucent window styling utilizing Windows DWM composition.
-* **Slate-Purple Caret & Selection:** Custom-tailored text input styling matching the active theme color tokens.
-* **Flexbox Layout:** A fixed title bar and footer that remain visible, restricting scrollbars exclusively to the notepad text area.
-* **Watermark Branding:** A centered, low-opacity "made by BlazeR" footer that dynamically pushes upward when links are detected to avoid visual overlapping.
+To remove QuickText, delete the exe and the folder `%LOCALAPPDATA%\QuickText`.
 
-### ⚡ Native Performance & Windows Interop
-* **Win32 Layered Window Opacity:** Window transparency is handled natively via Win32 `SetLayeredWindowAttributes` by bypassing WPF's restrictive `AllowsTransparency="True"` mode (which conflicts with WebView2 input capture).
-* **Always-On-Top:** Native WPF topmost configuration keeps the scratchpad visible over other applications.
-* **Borderless Dragging:** Smooth window repositioning by clicking and dragging anywhere on the frosted background title bar.
-* **Customizable Window Size Limits:** Automatically grows and shrinks the window height to match note length, bounded by user-defined minimum/maximum height and fixed width limits configured in the Settings panel via a clean 2x2 grid layout.
-* **System-wide Visibility Toggle:** Register a global hotkey to show or hide the scratchpad instantly from anywhere in Windows.
+## Using it
 
-### 📝 Editor Utilities
-* **Autosave & Auto-Restore:** Notepad content is written to disk in real-time and automatically restored on next startup.
-* **Tab Insertion:** Intercepts the `Tab` key to insert literal `\t` characters instead of shifting focus to other UI controls.
-* **Copy Feedback:** Single-click Copy button with a temporary green success glow animation.
-* **Clear Animation:** Amber-styled Clear button with a success confirmation state that wipes content and shrinks the window back to its configured minimum height.
-* **Reactive Link Pills:** Automatically scans your notes for URLs in real-time, displaying them as clickable pills at the bottom. Clicking a pill opens the URL in your default system browser.
+1. Start QuickText. A tray icon appears in the notification area (on Windows 11 it may first sit under the arrow; drag it out to pin it).
+2. Type. Your note is saved as you type and restored on the next start.
+3. Press **Esc** or the minus button to hide the window. Press **Ctrl+Shift+Space** or click the tray icon to bring it back.
+4. Quit with **Ctrl+Q**, the tray menu, or the settings panel.
 
----
+Starting the app a second time just brings the running window to the front. In the settings you can let QuickText start quietly with Windows.
 
-## ⌨️ Keyboard Shortcuts Reference
+## Features
 
-The application supports both **local shortcuts** (active when the window is focused) and **global hotkeys** (active system-wide). All shortcuts can be customized or disabled (`not set`) directly in the Settings panel.
+* Always on top, borderless, resizable. Size and position are remembered, and the window grows with the text up to 85% of the screen.
+* Links in the note become pills at the bottom. Hovering a pill highlights the link in the text, clicking opens it in your browser (http and https only).
+* Copy copies the whole note. Clear empties it, and Ctrl+Z brings it back.
+* Spell checking in your Windows display language, with suggestions in the right-click menu.
+* Adjustable window opacity, autosave on or off, optional start with Windows.
+* Settings and notes are written atomically, so a crash cannot leave a half-written file.
+* While hidden, QuickText gives its memory back to Windows and typically sits well under 50 MB.
 
-| Action | Type | Default Shortcut | Description |
-| :--- | :--- | :--- | :--- |
-| **Copy All Text** | Local | `CTRL+SHIFT+C` | Copies the entire content of the scratchpad to the clipboard. |
-| **Close / Hide** | Local | `ESCAPE` | Closes the settings panel if open, otherwise hides the app to the tray (if global hotkey is set) or exits. |
-| **Exit Application** | Local | `CTRL+Q` | Completely terminates and shuts down the application. |
-| **Global Show/Hide** | Global | `not set` (Click to record) | System-wide shortcut to instantly toggle the window's visibility. |
-| **Insert Tab Char** | Local | `TAB` | Inserts a literal `\t` tab space at the current cursor position. |
+## Shortcuts
 
----
+All shortcuts can be changed in the settings (gear icon): click a field, press the keys, Backspace clears it.
 
-## ⚙️ Technical Architecture
+| Action | Default | Scope |
+| :--- | :--- | :--- |
+| Show / hide | `Ctrl+Shift+Space` | System-wide |
+| Hide window | `Esc` | Window focused |
+| Copy note | `Ctrl+Shift+C` | Window focused |
+| Exit | `Ctrl+Q` | Window focused |
 
-To bypass the classic WPF "Airspace Conflict" (where hosting native controls like `WebView2` inside a transparent WPF window causes keyboard inputs to freeze or renders the control completely invisible), QuickText implements a custom **Win32 Hooking Layer**:
+Combinations that would get in the way of typing are refused (a bare letter, or Ctrl+Alt+letter, which is AltGr on many keyboard layouts). If another program already owns the system-wide shortcut, the settings panel says so. The tray icon works either way.
 
-```
-[User Interaction (Slider)]
-           │
-           ▼
-   [WebView2 frontend] ────(PostMessage JSON)────► [WPF C# Host]
-                                                          │
-                                                (Interceptors & P/Invoke)
-                                                          │
-                                                          ▼
-                                            [Windows API (user32.dll)]
-                                            • Add WS_EX_LAYERED style
-                                            • SetLayeredWindowAttributes (Opacity)
-                                            • Intercept WM_STYLECHANGING (Prevent WPF strip)
-```
+## Troubleshooting
 
-1. **AllowsTransparency="False"**: The window is initialized as an opaque window, which lets `WebView2` receive keyboard and mouse focus natively.
-2. **WS_EX_LAYERED Injection**: The window style is modified to a layered window (`WS_EX_LAYERED`) on runtime.
-3. **WM_STYLECHANGING Hook**: Since WPF detects the layered style and attempts to strip it back off during layout passes, a native `HwndSource` hook intercepts `WM_STYLECHANGING` messages for `GWL_EXSTYLE`, forces `WS_EX_LAYERED` back on, and marks the message as `handled = true` to bypass WPF's internal window procedure.
-4. **SetLayeredWindowAttributes**: Opacity is updated smoothly via `user32.dll` attributes, giving the window DWM-blended translucency.
+* **The window is gone.** Click the tray icon, press the global shortcut, or start `QuickText.exe` again.
+* **The tray icon is missing.** On Windows 11 new icons start under the arrow in the taskbar; drag it out to keep it visible.
+* **The old taskbar icon still shows after an update.** Windows caches icons. Restart Explorer or sign out and in.
+* **Something crashed.** Details are written to `%LOCALAPPDATA%\QuickText\crash.log`. Please attach it to an issue.
 
----
+## Data
 
-## 📂 Local Storage & Configuration
+Everything stays on your machine in `%LOCALAPPDATA%\QuickText`:
 
-QuickText operates completely offline and saves all settings and notes locally in the user's AppData directory:
-* **Settings File:** `%LOCALAPPDATA%\QuickText\settings.json` (stores hotkeys, autosave configuration, and opacity).
-* **Notes File:** `%LOCALAPPDATA%\QuickText\notes.txt` (stores notepad text if Autosave is enabled).
-* **WebView2 Cache:** `%LOCALAPPDATA%\QuickText\WebView2_Data\` (stores browser profile and storage cache).
+* `settings.json` for shortcuts, opacity, autosave, window size and position
+* `notes.txt` for the note, only while autosave is on
 
----
+Set the environment variable `QUICKTEXT_DATA_DIR` to a folder to keep all of it somewhere else, for example next to the exe on a USB stick.
 
-## 🛠️ Prerequisites & Build Instructions
+## Build
 
-### Prerequisites
-* Windows 10 or 11 (64-bit)
-* [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
-* Microsoft Edge WebView2 Runtime (Pre-installed on modern Windows)
-
-### Build Standalone Executable
-Open PowerShell in the repository directory and run the following command to compile a single-file release executable:
+Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0):
 
 ```powershell
-dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true
+dotnet publish -c Release -o out            # self-contained single exe
+dotnet publish -c Release -p:SelfContained=false -o out-small   # needs the .NET runtime
 ```
 
-The compiled standalone executable will be located at:
-`bin/Release/net9.0-windows/win-x64/publish/QuickText.exe`
+Debug builds use `%LOCALAPPDATA%\QuickText-dev`, so development never touches your real notes. Pushing a tag like `v2.0.0` makes GitHub Actions build both variants and attach them to a release.
 
----
+QuickText is a plain WPF application. There is no embedded browser; the global shortcut, tray icon, window opacity and rounded corners use the Win32 and DWM APIs directly.
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT, see [LICENSE](LICENSE).

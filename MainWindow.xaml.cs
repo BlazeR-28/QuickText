@@ -1,508 +1,674 @@
-using System;
 using System.Diagnostics;
-using System.IO;
-using System.Reflection;
+using System.Globalization;
 using System.Runtime.InteropServices;
-using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
-using Microsoft.Web.WebView2.Core;
+using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Markup;
+using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace QuickText;
 
 public partial class MainWindow : Window
 {
-    [DllImport("user32.dll")]
-    private static extern bool ReleaseCapture();
+    private const int GlobalHotkeyId = 9000;
+    private const double SettingsMinHeight = 560;
+    private const int MaxPills = 6;
+    private const int MaxLinkScanLength = 300_000;
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+    private static readonly Regex UrlRegex = new(@"https?://[^\s]+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    private const int WM_NCLBUTTONDOWN = 0xA1;
-    private const int HT_CAPTION = 0x2;
+    private readonly AppSettings _s = Storage.LoadSettings();
+    private readonly GlobalHotkey _global = new();
+    private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    private readonly Dictionary<Button, int> _flashTokens = new();
+    private readonly List<Button> _hotkeyButtons;
 
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int pvAttribute, int cbAttribute);
+    private Gesture? _copyKey, _closeKey, _exitKey, _globalKey;
+    private string? _globalError;
+    private List<(int Start, int Length, string Url)> _links = new();
 
-    private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
-    private const int DWMWCP_ROUND = 2;
-
-    [DllImport("user32.dll")]
-    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
-
-    [DllImport("user32.dll")]
-    private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
-
-    private const int HOTKEY_ID = 9000;
-    private const int WM_HOTKEY = 0x0312;
-
-    [DllImport("user32.dll", EntryPoint = "GetWindowLong", SetLastError = true)]
-    private static extern int GetWindowLong32(IntPtr hWnd, int nIndex);
-
-    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
-    private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
-
-    [DllImport("user32.dll", EntryPoint = "SetWindowLong", SetLastError = true)]
-    private static extern int SetWindowLong32(IntPtr hWnd, int nIndex, int dwNewLong);
-
-    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
-    private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-
-    private const int GWL_EXSTYLE = -20;
-    private const int WS_EX_LAYERED = 0x80000;
-    private const int LWA_ALPHA = 0x2;
-
-    private const int WM_STYLECHANGING = 0x007C;
-
-    private const uint SWP_NOMOVE = 0x0002;
-    private const uint SWP_NOSIZE = 0x0001;
-    private const uint SWP_NOZORDER = 0x0004;
-    private const uint SWP_FRAMECHANGED = 0x0020;
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct STYLESTRUCT
-    {
-        public uint styleOld;
-        public uint styleNew;
-    }
-
-    private static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex)
-    {
-        if (IntPtr.Size == 8)
-            return GetWindowLongPtr64(hWnd, nIndex);
-        else
-            return new IntPtr(GetWindowLong32(hWnd, nIndex));
-    }
-
-    private static IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
-    {
-        if (IntPtr.Size == 8)
-            return SetWindowLongPtr64(hWnd, nIndex, dwNewLong);
-        else
-            return new IntPtr(SetWindowLong32(hWnd, nIndex, dwNewLong.ToInt32()));
-    }
-
-    public class AppSettings
-    {
-        public bool autosave { get; set; } = true;
-        public string copyHotkey { get; set; } = "CTRL+SHIFT+C";
-        public string closeHotkey { get; set; } = "ESCAPE";
-        public string exitHotkey { get; set; } = "CTRL+Q";
-        public string globalHotkey { get; set; } = "not set";
-        public double opacity { get; set; } = 1.0;
-        public int minWidth { get; set; } = 600;
-        public int minHeight { get; set; } = 300;
-        public int maxHeight { get; set; } = 2000;
-    }
-
-    private readonly string AppDataFolder = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "QuickText"
-    );
-    private string SettingsPath => Path.Combine(AppDataFolder, "settings.json");
-    private string NotePath => Path.Combine(AppDataFolder, "notes.txt");
+    private IntPtr _hwnd;
+    private TrayIcon? _tray;
+    private double _baseHeight;
+    private bool _noteDirty, _settingsDirty, _settingsOpen, _loadingUi;
+    private Button? _recording;
 
     public MainWindow()
     {
         InitializeComponent();
-        InitializeWebView();
+        _hotkeyButtons = new() { CopyKeyBtn, CloseKeyBtn, ExitKeyBtn, GlobalKeyBtn };
+
+        Width = Math.Max(MinWidth, _s.Width);
+        _baseHeight = Math.Max(MinHeight, _s.Height);
+        Height = _baseHeight;
+        if (_s.Left is double left && _s.Top is double top)
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = left;
+            Top = top;
+        }
+
+        // WPF's spell checker follows the element language, which defaults to en-US.
+        Pad.Language = XmlLanguage.GetLanguage(CultureInfo.CurrentUICulture.IetfLanguageTag);
+
+        if (_s.Autosave) Pad.Text = Storage.LoadNote();
+        Pad.CaretIndex = Pad.Text.Length;
+
+        AboutLabel.Text = $"QuickText v{typeof(MainWindow).Assembly.GetName().Version?.ToString(3)}  -  made by BlazeR";
+
+        ParseLocalHotkeys();
+
+        Pad.ContextMenu = new ContextMenu();
+        Pad.ContextMenuOpening += BuildContextMenu;
+        Pad.TextChanged += (_, _) => OnTextChanged();
+        _saveTimer.Tick += (_, _) => { _saveTimer.Stop(); FlushSave(); };
+
+        SettingsBtn.Click += (_, _) => { if (_settingsOpen) CloseSettings(); else OpenSettings(); };
+        DoneBtn.Click += (_, _) => CloseSettings();
+        CloseBtn.Click += (_, _) => HideWindow();
+        ExitAppBtn.Click += (_, _) => Close();
+        CopyBtn.Click += (_, _) => DoCopy();
+        ClearBtn.Click += (_, _) => DoClear();
+
+        AutosaveSwitch.Click += (_, _) => OnAutosaveChanged();
+        AutostartSwitch.Click += (_, _) =>
+        {
+            if (!Autostart.TrySet(AutostartSwitch.IsChecked == true))
+            {
+                AutostartSwitch.IsChecked = Autostart.IsEnabled; // could not write the registry: show the real state
+                HotkeyError.Text = "Windows would not let QuickText change its startup entry.";
+            }
+        };
+        OpacitySlider.ValueChanged += (_, e) => OnOpacityChanged(e.NewValue);
+
+        foreach (var b in _hotkeyButtons)
+        {
+            b.Click += (_, _) => StartRecording(b);
+            b.LostKeyboardFocus += (_, _) => { if (_recording == b) StopRecording(); };
+        }
+
+        RebuildLinks();
+        Loaded += (_, _) => { UpdateHeight(); Pad.Focus(); };
     }
+
+    // ---------- Window plumbing ----------
 
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        try
-        {
-            var helper = new System.Windows.Interop.WindowInteropHelper(this);
-            IntPtr hWnd = helper.Handle;
+        _hwnd = new WindowInteropHelper(this).Handle;
 
-            int cornerPreference = DWMWCP_ROUND;
-            DwmSetWindowAttribute(hWnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref cornerPreference, sizeof(int));
+        int round = NativeMethods.DWMWCP_ROUND;
+        NativeMethods.DwmSetWindowAttribute(_hwnd, NativeMethods.DWMWA_WINDOW_CORNER_PREFERENCE, ref round, sizeof(int));
+        int borderColor = 0x002F3538; // COLORREF (BGR) of LineBrush #38352F: a faint line instead of the default accent border
+        NativeMethods.DwmSetWindowAttribute(_hwnd, NativeMethods.DWMWA_BORDER_COLOR, ref borderColor, sizeof(int));
 
-            // Add hook for global hotkeys and style interception
-            System.Windows.Interop.HwndSource source = System.Windows.Interop.HwndSource.FromHwnd(hWnd);
-            source.AddHook(HwndHook);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Failed to set DWM corner preference or add hooks: {ex.Message}");
-        }
+        HwndSource.FromHwnd(_hwnd)?.AddHook(WndProc);
 
-        try
-        {
-            Uri iconUri = new Uri("pack://application:,,,/Resources/quicktext.ico", UriKind.RelativeOrAbsolute);
-            this.Icon = System.Windows.Media.Imaging.BitmapFrame.Create(iconUri);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Failed to load window icon: {ex.Message}");
-        }
+        NativeMethods.SetWindowOpacity(_hwnd, _s.Opacity);
+        RegisterGlobalFromSettings();
+
+        _tray = new TrayIcon(_hwnd, ShowAndActivate, () => Close());
+        _tray.Add();
+        RefreshHints();
+
+        KeepOnScreen();
     }
 
-    private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        try
+        if (_tray != null && _tray.TryHandle(msg, lParam))
         {
-            if (msg == WM_HOTKEY)
-            {
-                long wp = wParam.ToInt64();
-                if (wp == HOTKEY_ID)
-                {
-                    ToggleWindowVisibility();
-                    handled = true;
-                }
-            }
-            else if (msg == WM_STYLECHANGING)
-            {
-                long wp = wParam.ToInt64();
-                // Check for GWL_EXSTYLE (-20 or 4294967276)
-                if (wp == -20 || wp == 4294967276)
-                {
-                    STYLESTRUCT ss = (STYLESTRUCT)Marshal.PtrToStructure(lParam, typeof(STYLESTRUCT));
-                    ss.styleNew |= (uint)WS_EX_LAYERED;
-                    Marshal.StructureToPtr(ss, lParam, false);
-                    handled = true;
-                }
-            }
+            handled = true;
+            return IntPtr.Zero;
         }
-        catch (Exception ex)
+
+        switch (msg)
         {
-            Debug.WriteLine($"Error in HwndHook: {ex.Message}");
+            case NativeMethods.WM_HOTKEY when wParam.ToInt64() == GlobalHotkeyId:
+                Toggle();
+                handled = true;
+                break;
+
+            // WPF strips WS_EX_LAYERED again on style changes; put it back so opacity keeps working.
+            case NativeMethods.WM_STYLECHANGING when wParam.ToInt64() is NativeMethods.GWL_EXSTYLE or 4294967276L:
+                var ss = Marshal.PtrToStructure<NativeMethods.STYLESTRUCT>(lParam);
+                ss.styleNew |= NativeMethods.WS_EX_LAYERED;
+                Marshal.StructureToPtr(ss, lParam, false);
+                handled = true;
+                break;
+
+            case NativeMethods.WM_EXITSIZEMOVE:
+                OnUserMovedOrResized();
+                break;
         }
         return IntPtr.Zero;
     }
 
-    private void SetWindowOpacity(double opacity)
+    public void ShowAndActivate()
     {
+        Show();
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Activate();
+        Pad.Focus();
+    }
+
+    private void Toggle()
+    {
+        if (IsVisible && IsActive) HideWindow();
+        else ShowAndActivate();
+    }
+
+    /// <summary>Writes the note and settings immediately (logoff, crash).</summary>
+    public void SaveNow()
+    {
+        CaptureGeometry();
+        _noteDirty = _s.Autosave;
+        _settingsDirty = true;
+        FlushSave();
+    }
+
+    /// <summary>Hiding is always safe: the tray icon (and usually the global shortcut) brings the window back.</summary>
+    private void HideWindow()
+    {
+        Hide();
+        // The app lives in the background for days, so give the memory back while nobody is looking at it.
+        Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () =>
+        {
+            if (IsVisible) return;
+            GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+            NativeMethods.TrimWorkingSet();
+        });
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        base.OnClosing(e);
+        CaptureGeometry();
+        _noteDirty = _s.Autosave;
+        _settingsDirty = true;
+        FlushSave();
+        _global.Unregister();
+        _tray?.Dispose();
+    }
+
+    /// <summary>Keeps every place that mentions the shortcuts (hint, tooltip, tray) in sync.</summary>
+    private void RefreshHints()
+    {
+        string? hide = _closeKey?.Pretty;
+        string? show = _globalKey?.Pretty;
+
+        CloseBtn.ToolTip = hide != null ? $"Hide to tray ({hide})" : "Hide to tray";
+
+        string hidePart = hide != null ? $"{hide} hides this window" : "The button at the top right hides this window";
+        string showPart = show != null ? $"{show} or the tray icon brings it back" : "the tray icon brings it back";
+        HintLabel.Text = $"{hidePart} - {showPart}.";
+
+        if (_tray != null)
+        {
+            _tray.ShortcutText = show ?? "";
+            _tray.SetTip(show != null ? $"QuickText - {show} opens it" : "QuickText - click to open");
+        }
+    }
+
+    // ---------- Geometry ----------
+
+    private Rect WorkAreaDip()
+    {
+        IntPtr monitor = NativeMethods.MonitorFromWindow(_hwnd, 2 /* nearest */);
+        var info = new NativeMethods.MONITORINFO { cbSize = Marshal.SizeOf<NativeMethods.MONITORINFO>() };
+        if (monitor == IntPtr.Zero || !NativeMethods.GetMonitorInfo(monitor, ref info))
+            return SystemParameters.WorkArea;
+
+        DpiScale dpi = VisualTreeHelper.GetDpi(this);
+        var r = info.rcWork;
+        return new Rect(r.left / dpi.DpiScaleX, r.top / dpi.DpiScaleY,
+                        (r.right - r.left) / dpi.DpiScaleX, (r.bottom - r.top) / dpi.DpiScaleY);
+    }
+
+    private void KeepOnScreen()
+    {
+        Rect wa = WorkAreaDip();
+        Width = Math.Min(Width, wa.Width);
+        Height = Math.Min(Height, wa.Height);
+        Left = Math.Max(wa.Left, Math.Min(Left, wa.Right - Width));
+        Top = Math.Max(wa.Top, Math.Min(Top, wa.Bottom - Height));
+    }
+
+    private void CaptureGeometry()
+    {
+        _s.Left = Left;
+        _s.Top = Top;
+        _s.Width = ActualWidth > 0 ? ActualWidth : Width;
+        _s.Height = _baseHeight;
+    }
+
+    private void OnUserMovedOrResized()
+    {
+        if (!_settingsOpen) _baseHeight = ActualHeight;
+        CaptureGeometry();
+        MarkSettingsDirty();
+    }
+
+    /// <summary>Grows the window with the text up to 85% of the screen, and shrinks back to the user's own height.</summary>
+    private void UpdateHeight()
+    {
+        if (!IsLoaded) return;
+
+        Pad.UpdateLayout();
+        Rect wa = WorkAreaDip();
+
+        double chrome = ActualHeight - Pad.ViewportHeight;
+        double needed = Pad.ExtentHeight + chrome;
+        double max = Math.Max(_baseHeight, wa.Height * 0.85);
+        double target = Math.Clamp(needed, _baseHeight, max);
+        if (_settingsOpen) target = Math.Max(target, Math.Min(SettingsMinHeight, wa.Height));
+
+        if (Math.Abs(target - ActualHeight) < 1) return;
+
+        Height = target;
+        Top = Math.Max(wa.Top, Math.Min(Top, wa.Bottom - target));
+    }
+
+    // ---------- Editor ----------
+
+    private void OnTextChanged()
+    {
+        RebuildLinks();
+        UpdateHeight();
+        if (_s.Autosave)
+        {
+            _noteDirty = true;
+            if (!_saveTimer.IsEnabled) _saveTimer.Start();
+        }
+    }
+
+    private void DoCopy()
+    {
+        if (Pad.Text.Length == 0) return;
         try
         {
-            var helper = new System.Windows.Interop.WindowInteropHelper(this);
-            IntPtr hWnd = helper.Handle;
-            if (hWnd == IntPtr.Zero) return;
+            Clipboard.SetDataObject(Pad.Text, true);
+            Flash(CopyBtn, "Copy", "Copied", (Brush)FindResource("SuccessBrush"));
+        }
+        catch (COMException)
+        {
+            Flash(CopyBtn, "Copy", "Failed", (Brush)FindResource("DangerBrush"));
+        }
+    }
 
-            IntPtr exStylePtr = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
-            long exStyle = exStylePtr.ToInt64();
+    private void DoClear()
+    {
+        // Replacing the selection keeps the undo history, so Ctrl+Z restores the note.
+        Pad.SelectAll();
+        Pad.SelectedText = "";
+        Pad.Focus();
+        Flash(ClearBtn, "Clear", "Cleared", (Brush)FindResource("SuccessBrush"));
+    }
 
-            if ((exStyle & WS_EX_LAYERED) == 0)
+    private async void Flash(Button button, string original, string text, Brush color)
+    {
+        int token = _flashTokens[button] = _flashTokens.GetValueOrDefault(button) + 1;
+        button.Content = text;
+        button.Foreground = color;
+        button.BorderBrush = color;
+
+        await Task.Delay(1200);
+
+        if (_flashTokens[button] != token) return;
+        button.Content = original;
+        button.ClearValue(Control.ForegroundProperty);
+        button.ClearValue(Control.BorderBrushProperty);
+    }
+
+    /// <summary>
+    /// The built-in TextBox menu ignores our styles and shows up white. This one is built by hand
+    /// (spelling suggestions first, then the usual clipboard commands) so it matches the app.
+    /// </summary>
+    private void BuildContextMenu(object sender, ContextMenuEventArgs e)
+    {
+        ContextMenu menu = Pad.ContextMenu;
+        menu.Items.Clear();
+
+        if (Pad.SelectionLength == 0 && e.CursorLeft >= 0)
+        {
+            int index = Pad.GetCharacterIndexFromPoint(new Point(e.CursorLeft, e.CursorTop), true);
+            if (index >= 0) Pad.CaretIndex = index; // spelling commands act at the caret
+        }
+
+        SpellingError? error = Pad.CaretIndex <= Pad.Text.Length ? Pad.GetSpellingError(Pad.CaretIndex) : null;
+        if (error != null)
+        {
+            bool any = false;
+            foreach (string suggestion in error.Suggestions.Take(5))
             {
-                SetWindowLongPtr(hWnd, GWL_EXSTYLE, new IntPtr(exStyle | WS_EX_LAYERED));
-                SetWindowPos(hWnd, IntPtr.Zero, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+                any = true;
+                menu.Items.Add(new MenuItem
+                {
+                    Header = suggestion,
+                    FontWeight = FontWeights.SemiBold,
+                    Command = EditingCommands.CorrectSpellingError,
+                    CommandParameter = suggestion,
+                    CommandTarget = Pad
+                });
             }
+            if (!any) menu.Items.Add(new MenuItem { Header = "(no suggestions)", IsEnabled = false });
+            menu.Items.Add(new MenuItem { Header = "Ignore all", Command = EditingCommands.IgnoreSpellingError, CommandTarget = Pad });
+            menu.Items.Add(new Separator());
+        }
 
-            opacity = Math.Max(0.2, Math.Min(1.0, opacity));
-            byte alpha = (byte)(opacity * 255);
-            SetLayeredWindowAttributes(hWnd, 0, alpha, LWA_ALPHA);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Failed to set window opacity: {ex.Message}");
-        }
+        menu.Items.Add(new MenuItem { Header = "Cut", Command = ApplicationCommands.Cut, CommandTarget = Pad });
+        menu.Items.Add(new MenuItem { Header = "Copy", Command = ApplicationCommands.Copy, CommandTarget = Pad });
+        menu.Items.Add(new MenuItem { Header = "Paste", Command = ApplicationCommands.Paste, CommandTarget = Pad });
+        menu.Items.Add(new Separator());
+        menu.Items.Add(new MenuItem { Header = "Select all", Command = ApplicationCommands.SelectAll, CommandTarget = Pad });
     }
 
-    private void ToggleWindowVisibility()
+    // ---------- Link pills ----------
+
+    private void RebuildLinks()
     {
-        if (this.Visibility == Visibility.Visible && this.IsActive)
+        var found = new List<(int, int, string)>();
+
+        // Scanning megabytes on every keystroke would make typing lag; notes that big are not scratch notes anymore.
+        string text = Pad.Text.Length <= MaxLinkScanLength ? Pad.Text : "";
+        foreach (Match m in UrlRegex.Matches(text))
         {
-            this.Visibility = Visibility.Hidden;
+            string url = TrimUrl(m.Value);
+            if (url.Length > "https://".Length) found.Add((m.Index, url.Length, url));
         }
-        else
+
+        bool sameUrls = found.Count == _links.Count && found.Select(f => f.Item3).SequenceEqual(_links.Select(l => l.Url));
+        _links = found;
+        if (sameUrls) return; // positions are looked up on hover, so nothing to redraw
+
+        PillPanel.Children.Clear();
+        for (int i = 0; i < Math.Min(found.Count, MaxPills); i++)
         {
-            this.Visibility = Visibility.Visible;
-            this.Show();
-            this.WindowState = WindowState.Normal;
-            this.Activate();
-            webView.Focus();
-        }
-    }
+            int index = i;
+            string label = Regex.Replace(found[i].Item3, @"^https?://(www\.)?", "");
+            if (label.Length > 22) label = label[..20] + "...";
 
-    private void UpdateGlobalHotkey(string hotkeyStr)
-    {
-        try
-        {
-            var helper = new System.Windows.Interop.WindowInteropHelper(this);
-            IntPtr hWnd = helper.Handle;
-
-            UnregisterHotKey(hWnd, HOTKEY_ID);
-
-            if (string.IsNullOrEmpty(hotkeyStr) || hotkeyStr.Equals("not set", StringComparison.OrdinalIgnoreCase) || hotkeyStr.Equals("None", StringComparison.OrdinalIgnoreCase))
+            var pill = new Button
             {
+                Style = (Style)FindResource("PillButton"),
+                Content = $"{i + 1}  {label}",
+                ToolTip = found[i].Item3
+            };
+
+            int savedStart = 0, savedLength = 0;
+            pill.MouseEnter += (_, _) =>
+            {
+                if (index >= _links.Count) return;
+                savedStart = Pad.SelectionStart;
+                savedLength = Pad.SelectionLength;
+                Pad.Select(_links[index].Start, _links[index].Length);
+            };
+            pill.MouseLeave += (_, _) =>
+            {
+                if (savedStart + savedLength <= Pad.Text.Length) Pad.Select(savedStart, savedLength);
+            };
+            pill.Click += (_, _) => { if (index < _links.Count) OpenUrl(_links[index].Url); };
+            PillPanel.Children.Add(pill);
+        }
+
+        if (found.Count > MaxPills)
+        {
+            PillPanel.Children.Add(new TextBlock
+            {
+                Text = $"+{found.Count - MaxPills} more",
+                FontSize = 11,
+                Foreground = (Brush)FindResource("MutedBrush"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(2, 0, 0, 4)
+            });
+        }
+    }
+
+    private static string TrimUrl(string url)
+    {
+        while (url.Length > 0)
+        {
+            char last = url[^1];
+            bool unbalancedCloser = last is ')' or ']' or '}' &&
+                url.Count(c => c == last) > url.Count(c => c == Opener(last));
+            if (".,;:!?'\"*>”’»".Contains(last) || unbalancedCloser) url = url[..^1];
+            else break;
+        }
+        return url;
+    }
+
+    private static char Opener(char closer) => closer switch { ')' => '(', ']' => '[', _ => '{' };
+
+    private static void OpenUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) || uri.Scheme is not ("http" or "https")) return;
+        try { Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true }); }
+        catch (Exception ex) { Debug.WriteLine($"Failed to open URL: {ex.Message}"); }
+    }
+
+    // ---------- Persistence ----------
+
+    private void MarkSettingsDirty()
+    {
+        _settingsDirty = true;
+        if (!_saveTimer.IsEnabled) _saveTimer.Start();
+    }
+
+    private void FlushSave()
+    {
+        if (_noteDirty && _s.Autosave)
+        {
+            Storage.SaveNote(Pad.Text);
+            _noteDirty = false;
+        }
+        if (_settingsDirty)
+        {
+            Storage.SaveSettings(_s);
+            _settingsDirty = false;
+        }
+    }
+
+    // ---------- Settings panel ----------
+
+    private void OpenSettings()
+    {
+        _loadingUi = true;
+        AutosaveSwitch.IsChecked = _s.Autosave;
+        AutostartSwitch.IsChecked = Autostart.IsEnabled;
+        OpacitySlider.Value = PercentToPosition(_s.Opacity * 100);
+        OpacityLabel.Text = $"{Math.Round(_s.Opacity * 100)}%";
+        _loadingUi = false;
+
+        RefreshHotkeyButtons();
+        HotkeyError.Text = _globalError ?? "";
+
+        SettingsPanel.Visibility = Visibility.Visible;
+        _settingsOpen = true;
+        UpdateHeight();
+    }
+
+    private void CloseSettings()
+    {
+        StopRecording();
+        SettingsPanel.Visibility = Visibility.Collapsed;
+        _settingsOpen = false;
+        UpdateHeight();
+        Pad.Focus();
+    }
+
+    private void OnAutosaveChanged()
+    {
+        _s.Autosave = AutosaveSwitch.IsChecked == true;
+        if (_s.Autosave) _noteDirty = true;
+        else Storage.DeleteNote();
+        MarkSettingsDirty();
+    }
+
+    // The bar runs from 20% (left) to 100% (right) with 50% exactly in the middle:
+    // the left half covers 20-50, the right half 50-100. Slider position is 0-100.
+    private static double PositionToPercent(double pos) => pos < 50 ? 20 + pos * 0.6 : pos;
+
+    private static double PercentToPosition(double percent) => percent < 50 ? (percent - 20) / 0.6 : percent;
+
+    private void OnOpacityChanged(double position)
+    {
+        if (_loadingUi) return;
+
+        double percent = PositionToPercent(position);
+        _s.Opacity = percent / 100;
+        OpacityLabel.Text = $"{Math.Round(percent)}%";
+        NativeMethods.SetWindowOpacity(_hwnd, _s.Opacity);
+        MarkSettingsDirty();
+    }
+
+    // ---------- Shortcuts ----------
+
+    private string GetKey(string id) => id switch
+    {
+        "Copy" => _s.CopyHotkey,
+        "Close" => _s.CloseHotkey,
+        "Exit" => _s.ExitHotkey,
+        _ => _s.GlobalHotkey
+    };
+
+    private void SetKey(string id, string value)
+    {
+        switch (id)
+        {
+            case "Copy": _s.CopyHotkey = value; break;
+            case "Close": _s.CloseHotkey = value; break;
+            case "Exit": _s.ExitHotkey = value; break;
+            default: _s.GlobalHotkey = value; break;
+        }
+    }
+
+    private void ParseLocalHotkeys()
+    {
+        _copyKey = Gesture.TryParse(_s.CopyHotkey, out var c) ? c : null;
+        _closeKey = Gesture.TryParse(_s.CloseHotkey, out var cl) ? cl : null;
+        _exitKey = Gesture.TryParse(_s.ExitHotkey, out var x) ? x : null;
+    }
+
+    private void RegisterGlobalFromSettings()
+    {
+        if (!Gesture.TryParse(_s.GlobalHotkey, out var g)) return;
+
+        if (_global.TryRegister(_hwnd, GlobalHotkeyId, g, out string? error)) _globalKey = g;
+        else _globalError = $"The global shortcut {g.Pretty} is not active. {error}";
+    }
+
+    private void RefreshHotkeyButtons()
+    {
+        foreach (var b in _hotkeyButtons)
+            b.Content = b == _recording ? "Press keys..." : Gesture.Display(GetKey((string)b.Tag));
+    }
+
+    private void StartRecording(Button button)
+    {
+        _recording = button;
+        HotkeyError.Text = "";
+        RefreshHotkeyButtons();
+        button.Focus();
+    }
+
+    private void StopRecording()
+    {
+        if (_recording == null) return;
+        _recording = null;
+        RefreshHotkeyButtons();
+        if (_settingsOpen) SettingsPanel.Focus();
+    }
+
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        base.OnPreviewKeyDown(e);
+
+        if (_recording != null)
+        {
+            e.Handled = true;
+            if (e.Key is Key.Back or Key.Delete && Keyboard.Modifiers == ModifierKeys.None)
+            {
+                AssignHotkey(null);
                 return;
             }
+            if (Gesture.FromEvent(e) is Gesture recorded) AssignHotkey(recorded);
+            return;
+        }
 
-            uint modifiers = 0;
-            uint vk = 0;
+        if (Gesture.FromEvent(e) is not Gesture pressed) return;
 
-            string[] parts = hotkeyStr.Split('+');
-            foreach (string part in parts)
+        if (pressed == _exitKey)
+        {
+            e.Handled = true;
+            Close();
+        }
+        else if (pressed == _copyKey)
+        {
+            e.Handled = true;
+            DoCopy();
+        }
+        else if (pressed == _closeKey)
+        {
+            e.Handled = true;
+            if (_settingsOpen) CloseSettings();
+            else HideWindow();
+        }
+    }
+
+    private void AssignHotkey(Gesture? gesture)
+    {
+        string id = (string)_recording!.Tag;
+        HotkeyError.Text = "";
+
+        if (id == "Global")
+        {
+            if (gesture is Gesture g)
             {
-                string p = part.Trim().ToUpper();
-                if (p == "CTRL" || p == "CONTROL") modifiers |= 0x0002;
-                else if (p == "ALT") modifiers |= 0x0001;
-                else if (p == "SHIFT") modifiers |= 0x0004;
-                else if (p == "WIN") modifiers |= 0x0008;
-                else
+                if (!_global.TryRegister(_hwnd, GlobalHotkeyId, g, out string? error))
                 {
-                    vk = ParseVirtualKey(p);
+                    HotkeyError.Text = error ?? "";
+                    if (_globalKey is Gesture previous) _global.TryRegister(_hwnd, GlobalHotkeyId, previous, out _);
+                    StopRecording();
+                    return;
                 }
+                _globalKey = g;
             }
-
-            if (vk != 0)
+            else
             {
-                // Register hotkey (0x4000 = MOD_NOREPEAT)
-                bool success = RegisterHotKey(hWnd, HOTKEY_ID, modifiers | 0x4000, vk);
-                Debug.WriteLine($"RegisterHotKey for '{hotkeyStr}': {success}");
+                _global.Unregister();
+                _globalKey = null;
             }
+            _globalError = null;
         }
-        catch (Exception ex)
+        else if (gesture is Gesture g)
         {
-            Debug.WriteLine($"Error updating global hotkey: {ex.Message}");
-        }
-    }
-
-    private uint ParseVirtualKey(string keyName)
-    {
-        if (keyName.Length == 1)
-        {
-            char c = keyName[0];
-            if (c >= 'A' && c <= 'Z') return (uint)c;
-            if (c >= '0' && c <= '9') return (uint)c;
-        }
-
-        if (keyName.StartsWith("F") && keyName.Length > 1 && int.TryParse(keyName.Substring(1), out int fNum) && fNum >= 1 && fNum <= 12)
-        {
-            return (uint)(0x70 + (fNum - 1));
-        }
-
-        switch (keyName)
-        {
-            case "ESCAPE": return 0x1B;
-            case "SPACE": return 0x20;
-            case "TAB": return 0x09;
-            case "ENTER": return 0x0D;
-            case "BACKSPACE": return 0x08;
-            case "DELETE": return 0x2E;
-        }
-
-        return 0;
-    }
-
-    private async void InitializeWebView()
-    {
-        try
-        {
-            string userDataFolder = Path.Combine(AppDataFolder, "WebView2_Data");
-            
-            var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
-            await webView.EnsureCoreWebView2Async(env);
-
-            webView.WebMessageReceived += WebView_WebMessageReceived;
-            LoadHtmlContent();
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Initialization Error: {ex.Message}", "QuickText Error", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-    }
-
-    private void LoadHtmlContent()
-    {
-        try
-        {
-            string html = ReadResourceText("QuickText.Resources.index.html");
-            string css = ReadResourceText("QuickText.Resources.app.css");
-            string js = ReadResourceText("QuickText.Resources.app.js");
-
-            html = html.Replace("<!-- STYLESHEET_PLACEHOLDER -->", $"<style>{css}</style>");
-            html = html.Replace("<!-- SCRIPT_PLACEHOLDER -->", $"<script>{js}</script>");
-
-            webView.NavigateToString(html);
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Failed to load resources: {ex.Message}", "QuickText Error", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-    }
-
-    private void WebView_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
-    {
-        string messageText = e.WebMessageAsJson;
-
-        if (messageText == "\"drag\"")
-        {
-            var helper = new System.Windows.Interop.WindowInteropHelper(this);
-            ReleaseCapture();
-            SendMessage(helper.Handle, WM_NCLBUTTONDOWN, new IntPtr(HT_CAPTION), IntPtr.Zero);
-        }
-        else if (messageText == "\"close\"")
-        {
-            this.Close();
-        }
-        else if (messageText == "\"hide\"")
-        {
-            this.Visibility = Visibility.Hidden;
-        }
-        else
-        {
-            try
+            string? problem = g.TypingConflict ?? (IsUsedLocally(g, id) ? "That shortcut is already used by another action." : null);
+            if (problem != null)
             {
-                using var doc = JsonDocument.Parse(messageText);
-                var root = doc.RootElement;
-                if (root.TryGetProperty("type", out var typeProp))
-                {
-                    string type = typeProp.GetString() ?? "";
-                    if (type == "resize")
-                    {
-                        double width = root.GetProperty("width").GetDouble();
-                        double height = root.GetProperty("height").GetDouble();
-                        
-                        double screenHeight = SystemParameters.WorkArea.Height;
-                        this.Height = Math.Min(height, screenHeight);
-                        this.Width = width;
-                    }
-                    else if (type == "open_url")
-                    {
-                        string url = root.GetProperty("url").GetString() ?? "";
-                        if (!string.IsNullOrEmpty(url))
-                        {
-                            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-                        }
-                    }
-                    else if (type == "copy")
-                    {
-                        string text = root.GetProperty("text").GetString() ?? "";
-                        if (!string.IsNullOrEmpty(text))
-                        {
-                            Clipboard.SetText(text);
-                        }
-                    }
-                    else if (type == "opacity")
-                    {
-                        if (root.TryGetProperty("value", out var valProp))
-                        {
-                            double opacity = valProp.GetDouble();
-                            SetWindowOpacity(opacity);
-                        }
-                    }
-                    else if (type == "ready")
-                    {
-                        if (!Directory.Exists(AppDataFolder)) Directory.CreateDirectory(AppDataFolder);
-
-                        // Load Settings
-                        AppSettings settings = new AppSettings();
-                        if (File.Exists(SettingsPath))
-                        {
-                            try
-                            {
-                                string settingsJson = File.ReadAllText(SettingsPath);
-                                var loaded = JsonSerializer.Deserialize<AppSettings>(settingsJson);
-                                if (loaded != null) settings = loaded;
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"Failed to load settings: {ex.Message}");
-                            }
-                        }
-
-                        // Register global hotkey
-                        UpdateGlobalHotkey(settings.globalHotkey);
-
-                        // Apply Opacity
-                        SetWindowOpacity(settings.opacity);
-
-                        // Load Saved Text
-                        string noteText = "";
-                        if (settings.autosave && File.Exists(NotePath))
-                        {
-                            try
-                            {
-                                noteText = File.ReadAllText(NotePath);
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"Failed to load note: {ex.Message}");
-                            }
-                        }
-
-                        // Post back to WebView
-                        var initObj = new { type = "init", settings = settings, noteText = noteText };
-                        string initJson = JsonSerializer.Serialize(initObj);
-                        webView.CoreWebView2.PostWebMessageAsJson(initJson);
-                    }
-                    else if (type == "save_settings")
-                    {
-                        if (root.TryGetProperty("settings", out var settingsProp))
-                        {
-                            try
-                            {
-                                if (!Directory.Exists(AppDataFolder)) Directory.CreateDirectory(AppDataFolder);
-                                string settingsJson = settingsProp.GetRawText();
-                                File.WriteAllText(SettingsPath, settingsJson);
-
-                                // Re-register global hotkey
-                                var loaded = JsonSerializer.Deserialize<AppSettings>(settingsJson);
-                                if (loaded != null)
-                                {
-                                    UpdateGlobalHotkey(loaded.globalHotkey);
-                                    SetWindowOpacity(loaded.opacity);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"Failed to save settings: {ex.Message}");
-                            }
-                        }
-                    }
-                    else if (type == "save_note")
-                    {
-                        if (root.TryGetProperty("text", out var textProp))
-                        {
-                            try
-                            {
-                                if (!Directory.Exists(AppDataFolder)) Directory.CreateDirectory(AppDataFolder);
-                                string noteText = textProp.GetString() ?? "";
-                                File.WriteAllText(NotePath, noteText);
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"Failed to save note: {ex.Message}");
-                            }
-                        }
-                    }
-                    else if (type == "clear_note")
-                    {
-                        try
-                        {
-                            if (File.Exists(NotePath))
-                            {
-                                File.Delete(NotePath);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"Failed to delete note: {ex.Message}");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error parsing WebView message: {ex.Message}");
+                HotkeyError.Text = problem;
+                StopRecording();
+                return;
             }
         }
+
+        SetKey(id, gesture?.ToString() ?? Gesture.NotSet);
+        ParseLocalHotkeys();
+        RefreshHints();
+        MarkSettingsDirty();
+        StopRecording();
     }
 
-    private string ReadResourceText(string resourceName)
+    private bool IsUsedLocally(Gesture g, string exceptId)
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        using var stream = assembly.GetManifestResourceStream(resourceName);
-        if (stream == null) 
-            throw new FileNotFoundException($"Embedded resource '{resourceName}' not found.");
-        using var reader = new StreamReader(stream);
-        return reader.ReadToEnd();
+        foreach (string other in new[] { "Copy", "Close", "Exit" })
+            if (other != exceptId && Gesture.TryParse(GetKey(other), out var existing) && existing == g)
+                return true;
+        return false;
     }
 }
