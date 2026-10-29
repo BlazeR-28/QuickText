@@ -17,7 +17,7 @@ It is plain text only. No tabs, no history, no search, no account, no network ac
 
 Windows may show a blue "Windows protected your PC" box, because the file is not code-signed. Click **More info**, then **Run anyway**. You can compare the file with `SHA256SUMS.txt` from the release if you want to be sure it is the original.
 
-Prefer a tiny download? `QuickText-needs-dotnet.exe` is about 0.2 MB but needs the [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0/runtime) installed.
+Prefer a tiny download? `QuickText-needs-dotnet.exe` is about 0.2 MB but needs the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0/runtime) installed.
 
 To remove QuickText, delete the exe and the folder `%LOCALAPPDATA%\QuickText`.
 
@@ -71,7 +71,7 @@ Set the environment variable `QUICKTEXT_DATA_DIR` to a folder to keep all of it 
 
 ## Build
 
-Needs the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0):
+Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0):
 
 ```powershell
 dotnet publish -c Release -o out            # self-contained single exe
