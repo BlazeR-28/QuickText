@@ -23,6 +23,13 @@ internal sealed class GlobalHotkey
             return false;
         }
 
+        // A system-wide shortcut would swallow the key in every other app, so it must not be a typing combination.
+        if (gesture.TypingConflict is string conflict)
+        {
+            error = conflict;
+            return false;
+        }
+
         uint mods = NativeMethods.MOD_NOREPEAT;
         if (gesture.Modifiers.HasFlag(ModifierKeys.Control)) mods |= NativeMethods.MOD_CONTROL;
         if (gesture.Modifiers.HasFlag(ModifierKeys.Shift)) mods |= NativeMethods.MOD_SHIFT;

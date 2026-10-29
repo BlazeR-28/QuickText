@@ -86,6 +86,30 @@ internal readonly record struct Gesture(ModifierKeys Modifiers, Key Key)
 
     public bool HasModifier => Modifiers != ModifierKeys.None;
 
+    /// <summary>Keys that produce text or edit it. Binding one of these without a real modifier would break typing.</summary>
+    public bool IsTypingKey => Key is (>= Key.A and <= Key.Z) or (>= Key.D0 and <= Key.D9)
+        or (>= Key.NumPad0 and <= Key.Divide) or Key.Space or Key.Tab or Key.Return or Key.Back or Key.Delete
+        or (>= Key.OemSemicolon and <= Key.OemTilde) or (>= Key.OemOpenBrackets and <= Key.OemBackslash);
+
+    /// <summary>Why this combination would get in the way of normal typing, or null when it is fine.</summary>
+    public string? TypingConflict
+    {
+        get
+        {
+            if (!IsTypingKey) return null;
+
+            bool real = Modifiers.HasFlag(ModifierKeys.Control) || Modifiers.HasFlag(ModifierKeys.Alt) || Modifiers.HasFlag(ModifierKeys.Windows);
+            if (!real)
+                return "Letters, digits and Space need Ctrl, Alt or Win in the combination, otherwise you could no longer type them.";
+
+            // AltGr is reported as Ctrl+Alt on many layouts (e.g. German: AltGr+Q is "@").
+            if (Modifiers.HasFlag(ModifierKeys.Control) && Modifiers.HasFlag(ModifierKeys.Alt) && !Modifiers.HasFlag(ModifierKeys.Windows))
+                return "Ctrl+Alt+key is AltGr on many keyboard layouts and would block typing characters like @ or the euro sign.";
+
+            return null;
+        }
+    }
+
     public override string ToString()
     {
         var parts = new List<string>(4);

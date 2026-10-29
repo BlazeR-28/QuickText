@@ -13,6 +13,7 @@ public partial class App : Application
 #endif
 
     private Mutex? _mutex;
+    private bool _ownsMutex;
     private EventWaitHandle? _showEvent;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -21,9 +22,10 @@ public partial class App : Application
 
         // Own identity for the taskbar, so Windows takes the icon from the window instead of a stale per-exe cache entry.
         NativeMethods.SetCurrentProcessExplicitAppUserModelID("BlazeR.QuickText");
+        NativeMethods.UseDarkMenus();
 
-        _mutex = new Mutex(true, MutexName, out bool isFirst);
-        if (!isFirst)
+        _mutex = new Mutex(true, MutexName, out _ownsMutex);
+        if (!_ownsMutex)
         {
             // Another instance is running: ask it to show itself instead of opening a second window.
             try
@@ -36,6 +38,17 @@ public partial class App : Application
             return;
         }
 
+        // A crash must never take the note with it: log it and save what is in the editor.
+        DispatcherUnhandledException += (_, args) =>
+        {
+            Storage.LogCrash(args.Exception);
+            (MainWindow as MainWindow)?.SaveNow();
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception ex) Storage.LogCrash(ex);
+        };
+
         _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
         new Thread(() =>
         {
@@ -46,12 +59,21 @@ public partial class App : Application
 
         var window = new MainWindow();
         MainWindow = window;
-        window.Show();
+
+        // Started by Windows at logon: create the window (hotkey and tray need it) but keep it hidden.
+        if (e.Args.Contains("--hidden")) new System.Windows.Interop.WindowInteropHelper(window).EnsureHandle();
+        else window.Show();
+    }
+
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        base.OnSessionEnding(e);
+        (MainWindow as MainWindow)?.SaveNow(); // logoff / shutdown: do not rely on the window closing in time
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
-        _mutex?.ReleaseMutex();
+        if (_ownsMutex) _mutex?.ReleaseMutex();
         base.OnExit(e);
     }
 }

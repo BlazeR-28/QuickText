@@ -22,7 +22,9 @@ public sealed class AppSettings
 internal static class Storage
 {
     // Debug builds use their own folder so development never touches real notes or hotkeys.
-    private static readonly string Dir = Path.Combine(
+    // QUICKTEXT_DATA_DIR redirects everything (portable use, testing).
+    private static readonly string Dir =
+        Environment.GetEnvironmentVariable("QUICKTEXT_DATA_DIR") is { Length: > 0 } custom ? custom : Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
 #if DEBUG
         "QuickText-dev");
@@ -99,6 +101,19 @@ internal static class Storage
         {
             Debug.WriteLine($"Failed to write {path}: {ex.Message}");
         }
+    }
+
+    /// <summary>Appends an unexpected error to crash.log next to the settings, so users can attach it to a bug report.</summary>
+    public static void LogCrash(Exception ex)
+    {
+        try
+        {
+            Directory.CreateDirectory(Dir);
+            string path = Path.Combine(Dir, "crash.log");
+            if (File.Exists(path) && new FileInfo(path).Length > 200_000) File.Delete(path);
+            File.AppendAllText(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] QuickText {typeof(Storage).Assembly.GetName().Version}\n{ex}\n\n");
+        }
+        catch { /* nothing left to do */ }
     }
 
     private static void TryKeepCorruptCopy(string path)

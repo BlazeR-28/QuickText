@@ -81,6 +81,35 @@ internal static class NativeMethods
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     public static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
 
+    [DllImport("uxtheme.dll", EntryPoint = "#135")]
+    private static extern int SetPreferredAppMode(int mode);
+
+    [DllImport("uxtheme.dll", EntryPoint = "#136")]
+    private static extern void FlushMenuThemes();
+
+    /// <summary>Makes native popup menus (the tray menu) dark to match the app. Undocumented but stable since Windows 10 1903.</summary>
+    public static void UseDarkMenus()
+    {
+        try
+        {
+            SetPreferredAppMode(2 /* ForceDark */);
+            FlushMenuThemes();
+        }
+        catch (Exception ex) when (ex is EntryPointNotFoundException or DllNotFoundException)
+        {
+            // older Windows: the menu simply stays light
+        }
+    }
+
+    [DllImport("psapi.dll")]
+    private static extern bool EmptyWorkingSet(IntPtr hProcess);
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetCurrentProcess();
+
+    /// <summary>Asks Windows to page out everything this process is not using right now.</summary>
+    public static void TrimWorkingSet() => EmptyWorkingSet(GetCurrentProcess());
+
     [DllImport("dwmapi.dll")]
     public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int pvAttribute, int cbAttribute);
 

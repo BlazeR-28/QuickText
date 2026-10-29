@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Markup;
@@ -15,8 +16,9 @@ namespace QuickText;
 public partial class MainWindow : Window
 {
     private const int GlobalHotkeyId = 9000;
-    private const double SettingsMinHeight = 500;
+    private const double SettingsMinHeight = 560;
     private const int MaxPills = 6;
+    private const int MaxLinkScanLength = 300_000;
 
     private static readonly Regex UrlRegex = new(@"https?://[^\s]+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
@@ -61,6 +63,8 @@ public partial class MainWindow : Window
 
         ParseLocalHotkeys();
 
+        Pad.ContextMenu = new ContextMenu();
+        Pad.ContextMenuOpening += BuildContextMenu;
         Pad.TextChanged += (_, _) => OnTextChanged();
         _saveTimer.Tick += (_, _) => { _saveTimer.Stop(); FlushSave(); };
 
@@ -72,6 +76,14 @@ public partial class MainWindow : Window
         ClearBtn.Click += (_, _) => DoClear();
 
         AutosaveSwitch.Click += (_, _) => OnAutosaveChanged();
+        AutostartSwitch.Click += (_, _) =>
+        {
+            if (!Autostart.TrySet(AutostartSwitch.IsChecked == true))
+            {
+                AutostartSwitch.IsChecked = Autostart.IsEnabled; // could not write the registry: show the real state
+                HotkeyError.Text = "Windows would not let QuickText change its startup entry.";
+            }
+        };
         OpacitySlider.ValueChanged += (_, e) => OnOpacityChanged(e.NewValue);
 
         foreach (var b in _hotkeyButtons)
@@ -148,12 +160,31 @@ public partial class MainWindow : Window
 
     private void Toggle()
     {
-        if (IsVisible && IsActive) Hide();
+        if (IsVisible && IsActive) HideWindow();
         else ShowAndActivate();
     }
 
+    /// <summary>Writes the note and settings immediately (logoff, crash).</summary>
+    public void SaveNow()
+    {
+        CaptureGeometry();
+        _noteDirty = _s.Autosave;
+        _settingsDirty = true;
+        FlushSave();
+    }
+
     /// <summary>Hiding is always safe: the tray icon (and usually the global shortcut) brings the window back.</summary>
-    private void HideWindow() => Hide();
+    private void HideWindow()
+    {
+        Hide();
+        // The app lives in the background for days, so give the memory back while nobody is looking at it.
+        Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () =>
+        {
+            if (IsVisible) return;
+            GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+            NativeMethods.TrimWorkingSet();
+        });
+    }
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
@@ -295,12 +326,58 @@ public partial class MainWindow : Window
         button.ClearValue(Control.BorderBrushProperty);
     }
 
+    /// <summary>
+    /// The built-in TextBox menu ignores our styles and shows up white. This one is built by hand
+    /// (spelling suggestions first, then the usual clipboard commands) so it matches the app.
+    /// </summary>
+    private void BuildContextMenu(object sender, ContextMenuEventArgs e)
+    {
+        ContextMenu menu = Pad.ContextMenu;
+        menu.Items.Clear();
+
+        if (Pad.SelectionLength == 0 && e.CursorLeft >= 0)
+        {
+            int index = Pad.GetCharacterIndexFromPoint(new Point(e.CursorLeft, e.CursorTop), true);
+            if (index >= 0) Pad.CaretIndex = index; // spelling commands act at the caret
+        }
+
+        SpellingError? error = Pad.CaretIndex <= Pad.Text.Length ? Pad.GetSpellingError(Pad.CaretIndex) : null;
+        if (error != null)
+        {
+            bool any = false;
+            foreach (string suggestion in error.Suggestions.Take(5))
+            {
+                any = true;
+                menu.Items.Add(new MenuItem
+                {
+                    Header = suggestion,
+                    FontWeight = FontWeights.SemiBold,
+                    Command = EditingCommands.CorrectSpellingError,
+                    CommandParameter = suggestion,
+                    CommandTarget = Pad
+                });
+            }
+            if (!any) menu.Items.Add(new MenuItem { Header = "(no suggestions)", IsEnabled = false });
+            menu.Items.Add(new MenuItem { Header = "Ignore all", Command = EditingCommands.IgnoreSpellingError, CommandTarget = Pad });
+            menu.Items.Add(new Separator());
+        }
+
+        menu.Items.Add(new MenuItem { Header = "Cut", Command = ApplicationCommands.Cut, CommandTarget = Pad });
+        menu.Items.Add(new MenuItem { Header = "Copy", Command = ApplicationCommands.Copy, CommandTarget = Pad });
+        menu.Items.Add(new MenuItem { Header = "Paste", Command = ApplicationCommands.Paste, CommandTarget = Pad });
+        menu.Items.Add(new Separator());
+        menu.Items.Add(new MenuItem { Header = "Select all", Command = ApplicationCommands.SelectAll, CommandTarget = Pad });
+    }
+
     // ---------- Link pills ----------
 
     private void RebuildLinks()
     {
         var found = new List<(int, int, string)>();
-        foreach (Match m in UrlRegex.Matches(Pad.Text))
+
+        // Scanning megabytes on every keystroke would make typing lag; notes that big are not scratch notes anymore.
+        string text = Pad.Text.Length <= MaxLinkScanLength ? Pad.Text : "";
+        foreach (Match m in UrlRegex.Matches(text))
         {
             string url = TrimUrl(m.Value);
             if (url.Length > "https://".Length) found.Add((m.Index, url.Length, url));
@@ -360,7 +437,7 @@ public partial class MainWindow : Window
             char last = url[^1];
             bool unbalancedCloser = last is ')' or ']' or '}' &&
                 url.Count(c => c == last) > url.Count(c => c == Opener(last));
-            if (".,;:!?'\"".Contains(last) || unbalancedCloser) url = url[..^1];
+            if (".,;:!?'\"*>”’»".Contains(last) || unbalancedCloser) url = url[..^1];
             else break;
         }
         return url;
@@ -403,6 +480,7 @@ public partial class MainWindow : Window
     {
         _loadingUi = true;
         AutosaveSwitch.IsChecked = _s.Autosave;
+        AutostartSwitch.IsChecked = Autostart.IsEnabled;
         OpacitySlider.Value = PercentToPosition(_s.Opacity * 100);
         OpacityLabel.Text = $"{Math.Round(_s.Opacity * 100)}%";
         _loadingUi = false;
@@ -482,7 +560,7 @@ public partial class MainWindow : Window
         if (!Gesture.TryParse(_s.GlobalHotkey, out var g)) return;
 
         if (_global.TryRegister(_hwnd, GlobalHotkeyId, g, out string? error)) _globalKey = g;
-        else _globalError = $"The global shortcut {g} is not active. {error}";
+        else _globalError = $"The global shortcut {g.Pretty} is not active. {error}";
     }
 
     private void RefreshHotkeyButtons()
@@ -568,11 +646,15 @@ public partial class MainWindow : Window
             }
             _globalError = null;
         }
-        else if (gesture is Gesture g && IsUsedLocally(g, id))
+        else if (gesture is Gesture g)
         {
-            HotkeyError.Text = "That shortcut is already used by another action.";
-            StopRecording();
-            return;
+            string? problem = g.TypingConflict ?? (IsUsedLocally(g, id) ? "That shortcut is already used by another action." : null);
+            if (problem != null)
+            {
+                HotkeyError.Text = problem;
+                StopRecording();
+                return;
+            }
         }
 
         SetKey(id, gesture?.ToString() ?? Gesture.NotSet);
