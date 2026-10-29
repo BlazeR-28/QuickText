@@ -17,7 +17,6 @@ public partial class MainWindow : Window
     private const int GlobalHotkeyId = 9000;
     private const double SettingsMinHeight = 500;
     private const int MaxPills = 6;
-    private const double MinOpacityPercent = 20;
 
     private static readonly Regex UrlRegex = new(@"https?://[^\s]+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
@@ -341,8 +340,6 @@ public partial class MainWindow : Window
             PillPanel.Children.Add(pill);
         }
 
-        MadeByLabel.Visibility = found.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-
         if (found.Count > MaxPills)
         {
             PillPanel.Children.Add(new TextBlock
@@ -406,7 +403,7 @@ public partial class MainWindow : Window
     {
         _loadingUi = true;
         AutosaveSwitch.IsChecked = _s.Autosave;
-        OpacitySlider.Value = _s.Opacity * 100;
+        OpacitySlider.Value = PercentToPosition(_s.Opacity * 100);
         OpacityLabel.Text = $"{Math.Round(_s.Opacity * 100)}%";
         _loadingUi = false;
 
@@ -435,17 +432,17 @@ public partial class MainWindow : Window
         MarkSettingsDirty();
     }
 
-    private void OnOpacityChanged(double percent)
+    // The bar runs from 20% (left) to 100% (right) with 50% exactly in the middle:
+    // the left half covers 20-50, the right half 50-100. Slider position is 0-100.
+    private static double PositionToPercent(double pos) => pos < 50 ? 20 + pos * 0.6 : pos;
+
+    private static double PercentToPosition(double percent) => percent < 50 ? (percent - 20) / 0.6 : percent;
+
+    private void OnOpacityChanged(double position)
     {
         if (_loadingUi) return;
 
-        // The bar spans 0-100 so 50% sits in the middle, but a nearly invisible window is a trap: stop at 20%.
-        if (percent < MinOpacityPercent)
-        {
-            OpacitySlider.Value = MinOpacityPercent;
-            return;
-        }
-
+        double percent = PositionToPercent(position);
         _s.Opacity = percent / 100;
         OpacityLabel.Text = $"{Math.Round(percent)}%";
         NativeMethods.SetWindowOpacity(_hwnd, _s.Opacity);

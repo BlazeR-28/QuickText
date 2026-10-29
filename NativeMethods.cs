@@ -78,6 +78,9 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern bool AllowSetForegroundWindow(int dwProcessId);
 
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    public static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
+
     [DllImport("dwmapi.dll")]
     public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int pvAttribute, int cbAttribute);
 

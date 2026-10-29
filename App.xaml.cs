@@ -19,6 +19,9 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // Own identity for the taskbar, so Windows takes the icon from the window instead of a stale per-exe cache entry.
+        NativeMethods.SetCurrentProcessExplicitAppUserModelID("BlazeR.QuickText");
+
         _mutex = new Mutex(true, MutexName, out bool isFirst);
         if (!isFirst)
         {
