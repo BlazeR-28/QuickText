@@ -1,0 +1,108 @@
+using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
+
+namespace QuickText;
+
+public sealed class AppSettings
+{
+    public bool Autosave { get; set; } = true;
+    public string CopyHotkey { get; set; } = "CTRL+SHIFT+C";
+    public string CloseHotkey { get; set; } = "ESCAPE";
+    public string ExitHotkey { get; set; } = "CTRL+Q";
+    // Ctrl+Alt+letter is AltGr+letter on many layouts (e.g. German "@"), so the default avoids it.
+    public string GlobalHotkey { get; set; } = "CTRL+SHIFT+SPACE";
+    public double Opacity { get; set; } = 1.0;
+    public double Width { get; set; } = 520;
+    public double Height { get; set; } = 280;
+    public double? Left { get; set; }
+    public double? Top { get; set; }
+}
+
+internal static class Storage
+{
+    // Debug builds use their own folder so development never touches real notes or hotkeys.
+    private static readonly string Dir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+#if DEBUG
+        "QuickText-dev");
+#else
+        "QuickText");
+#endif
+
+    private static string SettingsPath => Path.Combine(Dir, "settings.json");
+    private static string NotePath => Path.Combine(Dir, "notes.txt");
+
+    private static readonly JsonSerializerOptions Json = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
+        WriteIndented = true
+    };
+
+    public static AppSettings LoadSettings()
+    {
+        var settings = new AppSettings();
+        try
+        {
+            if (File.Exists(SettingsPath))
+                settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath), Json) ?? settings;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to load settings: {ex.Message}");
+            TryKeepCorruptCopy(SettingsPath);
+        }
+
+        settings.Opacity = double.IsFinite(settings.Opacity) ? Math.Clamp(settings.Opacity, 0.2, 1.0) : 1.0;
+        if (!double.IsFinite(settings.Width) || settings.Width < 100) settings.Width = 520;
+        if (!double.IsFinite(settings.Height) || settings.Height < 100) settings.Height = 280;
+        return settings;
+    }
+
+    public static void SaveSettings(AppSettings settings) =>
+        AtomicWrite(SettingsPath, JsonSerializer.Serialize(settings, Json));
+
+    public static string LoadNote()
+    {
+        try { return File.Exists(NotePath) ? File.ReadAllText(NotePath) : ""; }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to load note: {ex.Message}");
+            return "";
+        }
+    }
+
+    public static void SaveNote(string text)
+    {
+        if (text.Length == 0) DeleteNote();
+        else AtomicWrite(NotePath, text);
+    }
+
+    public static void DeleteNote()
+    {
+        try { if (File.Exists(NotePath)) File.Delete(NotePath); }
+        catch (Exception ex) { Debug.WriteLine($"Failed to delete note: {ex.Message}"); }
+    }
+
+    // Write to a temp file first so a crash mid-write can never leave a half-written note.
+    private static void AtomicWrite(string path, string content)
+    {
+        try
+        {
+            Directory.CreateDirectory(Dir);
+            string tmp = path + ".tmp";
+            File.WriteAllText(tmp, content);
+            File.Move(tmp, path, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to write {path}: {ex.Message}");
+        }
+    }
+
+    private static void TryKeepCorruptCopy(string path)
+    {
+        try { File.Copy(path, path + ".bad", overwrite: true); } catch { /* best effort */ }
+    }
+}
