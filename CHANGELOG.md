@@ -4,6 +4,12 @@ All notable changes to QuickText are documented here. The format follows [Keep a
 
 ## [Unreleased]
 
+### Added
+- `QUICKTEXT_SPELLCHECK_LANGUAGE` environment variable to spell-check in another language than the Windows display language.
+
+### Changed
+- README rewritten with screenshots; repository documentation updated.
+
 ## [2.0.0] - 2026-10-29
 
 A complete rewrite in plain WPF. The embedded browser is gone.
