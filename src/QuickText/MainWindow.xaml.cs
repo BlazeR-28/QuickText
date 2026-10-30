@@ -53,8 +53,12 @@ public partial class MainWindow : Window
             Top = top;
         }
 
-        // WPF's spell checker follows the element language, which defaults to en-US.
-        Pad.Language = XmlLanguage.GetLanguage(CultureInfo.CurrentUICulture.IetfLanguageTag);
+        // WPF's spell checker follows the element language, which defaults to en-US. It uses the Windows display
+        // language; QUICKTEXT_SPELLCHECK_LANGUAGE (for example en-US) overrides that for people who write in another language.
+        string spellLanguage = Environment.GetEnvironmentVariable("QUICKTEXT_SPELLCHECK_LANGUAGE") is { Length: > 0 } custom
+            ? custom
+            : CultureInfo.CurrentUICulture.IetfLanguageTag;
+        Pad.Language = XmlLanguage.GetLanguage(spellLanguage);
 
         if (_s.Autosave) Pad.Text = Storage.LoadNote();
         Pad.CaretIndex = Pad.Text.Length;
