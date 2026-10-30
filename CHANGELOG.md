@@ -4,6 +4,8 @@ All notable changes to QuickText are documented here. The format follows [Keep a
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-10-30
+
 ### Added
 - `QUICKTEXT_SPELLCHECK_LANGUAGE` environment variable to spell-check in another language than the Windows display language.
 
@@ -46,7 +48,8 @@ A complete rewrite in plain WPF. The embedded browser is gone.
 
 First release: WPF shell with a WebView2 interface, autosave, link pills, configurable shortcuts and window opacity.
 
-[Unreleased]: https://github.com/BlazeR-28/QuickText/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/BlazeR-28/QuickText/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/BlazeR-28/QuickText/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/BlazeR-28/QuickText/releases/tag/v2.0.0
 [1.1.0]: https://github.com/BlazeR-28/QuickText/releases/tag/v1.1.0
 [1.0.0]: https://github.com/BlazeR-28/QuickText/releases/tag/v1.0.0
