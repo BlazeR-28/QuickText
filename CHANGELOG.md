@@ -8,6 +8,7 @@ All notable changes to QuickText are documented here. The format follows [Keep a
 
 ### Fixed
 - Right-clicking a misspelled word offered corrections for a word a few characters to the left, so the wrong word could be changed. The click position is now taken relative to the text box.
+- A right click no longer moves the caret or changes the selection, and picking a correction keeps the caret where you were typing.
 
 ## [2.0.1] - 2026-10-30
 
