@@ -339,9 +339,15 @@ public partial class MainWindow : Window
         ContextMenu menu = Pad.ContextMenu;
         menu.Items.Clear();
 
+        // CursorLeft/CursorTop are relative to the inner text element, not to the TextBox, and the padding
+        // plus template offset made the hit test land a few characters to the left. The mouse position
+        // relative to the TextBox is what GetCharacterIndexFromPoint expects. A negative value means the
+        // menu key was used, then the caret stays where it is.
         if (Pad.SelectionLength == 0 && e.CursorLeft >= 0)
         {
-            int index = Pad.GetCharacterIndexFromPoint(new Point(e.CursorLeft, e.CursorTop), true);
+            Point at = Mouse.GetPosition(Pad);
+            int index = Pad.GetCharacterIndexFromPoint(at, false); // the character under the pointer, not the nearest edge
+            if (index < 0) index = Pad.GetCharacterIndexFromPoint(at, true); // pointer beyond the end of a line
             if (index >= 0) Pad.CaretIndex = index; // spelling commands act at the caret
         }
 
