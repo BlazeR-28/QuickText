@@ -69,6 +69,11 @@ public partial class MainWindow : Window
 
         Pad.ContextMenu = new ContextMenu();
         Pad.ContextMenuOpening += BuildContextMenu;
+        // A right click must not move the caret or change the selection, as in other apps. TextBox moves the caret
+        // itself, so remember where it was before the click and put it back when the menu closes.
+        Pad.PreviewMouseRightButtonDown += (_, _) => _selectionBeforeRightClick = (Pad.SelectionStart, Pad.SelectionLength);
+        Pad.ContextMenu.Opened += (_, _) => RestoreSelectionAfterRightClick();
+        Pad.ContextMenu.Closed += (_, _) => Dispatcher.BeginInvoke(DispatcherPriority.Input, RestoreSelectionAfterRightClick);
         Pad.TextChanged += (_, _) => OnTextChanged();
         _saveTimer.Tick += (_, _) => { _saveTimer.Stop(); FlushSave(); };
 
@@ -339,30 +344,34 @@ public partial class MainWindow : Window
         ContextMenu menu = Pad.ContextMenu;
         menu.Items.Clear();
 
-        if (Pad.SelectionLength == 0 && e.CursorLeft >= 0)
-        {
-            int index = Pad.GetCharacterIndexFromPoint(new Point(e.CursorLeft, e.CursorTop), true);
-            if (index >= 0) Pad.CaretIndex = index; // spelling commands act at the caret
-        }
+        // Find the word under the pointer without touching the caret or the selection, like other apps do.
+        // CursorLeft/CursorTop are relative to the inner text element, not to the TextBox, so the hit test
+        // used to land a few characters to the left; the mouse position relative to the TextBox is what
+        // GetCharacterIndexFromPoint expects. A negative CursorLeft means the menu key was used: then the caret decides.
+        int index = Pad.CaretIndex;
+        if (e.CursorLeft >= 0)
+            index = Pad.GetCharacterIndexFromPoint(Mouse.GetPosition(Pad), false); // -1 when the pointer is not over text
 
-        SpellingError? error = Pad.CaretIndex <= Pad.Text.Length ? Pad.GetSpellingError(Pad.CaretIndex) : null;
-        if (error != null)
+        SpellingError? error = index >= 0 && index <= Pad.Text.Length ? Pad.GetSpellingError(index) : null;
+        if (error is SpellingError spelling)
         {
+            // Correct and IgnoreAll work on the error itself, so nothing has to be moved to the clicked word first.
+            int wordStart = Pad.GetSpellingErrorStart(index);
+            int wordLength = Pad.GetSpellingErrorLength(index);
+
             bool any = false;
-            foreach (string suggestion in error.Suggestions.Take(5))
+            foreach (string suggestion in spelling.Suggestions.Take(5))
             {
                 any = true;
-                menu.Items.Add(new MenuItem
-                {
-                    Header = suggestion,
-                    FontWeight = FontWeights.SemiBold,
-                    Command = EditingCommands.CorrectSpellingError,
-                    CommandParameter = suggestion,
-                    CommandTarget = Pad
-                });
+                var item = new MenuItem { Header = suggestion, FontWeight = FontWeights.SemiBold };
+                item.Click += (_, _) => CorrectKeepingCaret(spelling, suggestion, wordStart, wordLength);
+                menu.Items.Add(item);
             }
             if (!any) menu.Items.Add(new MenuItem { Header = "(no suggestions)", IsEnabled = false });
-            menu.Items.Add(new MenuItem { Header = "Ignore all", Command = EditingCommands.IgnoreSpellingError, CommandTarget = Pad });
+
+            var ignore = new MenuItem { Header = "Ignore all" };
+            ignore.Click += (_, _) => spelling.IgnoreAll();
+            menu.Items.Add(ignore);
             menu.Items.Add(new Separator());
         }
 
@@ -371,6 +380,27 @@ public partial class MainWindow : Window
         menu.Items.Add(new MenuItem { Header = "Paste", Command = ApplicationCommands.Paste, CommandTarget = Pad });
         menu.Items.Add(new Separator());
         menu.Items.Add(new MenuItem { Header = "Select all", Command = ApplicationCommands.SelectAll, CommandTarget = Pad });
+    }
+
+    private (int Start, int Length)? _selectionBeforeRightClick;
+
+    private void RestoreSelectionAfterRightClick()
+    {
+        if (_selectionBeforeRightClick is not (int start, int length)) return;
+        if (Pad.SelectionStart != start || Pad.SelectionLength != length) Pad.Select(start, length);
+    }
+
+    /// <summary>SpellingError.Correct leaves the caret behind the corrected word; keep it where the user was typing instead.</summary>
+    private void CorrectKeepingCaret(SpellingError error, string replacement, int wordStart, int wordLength)
+    {
+        var (selStart, selLength) = _selectionBeforeRightClick ?? (Pad.SelectionStart, Pad.SelectionLength);
+        error.Correct(replacement);
+
+        bool touchesWord = selStart < wordStart + wordLength && selStart + selLength > wordStart;
+        if (touchesWord) return; // the caret was inside the word: behind the corrected word is the natural place
+
+        int newStart = selStart >= wordStart + wordLength ? selStart + (replacement.Length - wordLength) : selStart;
+        Pad.Select(newStart, selLength);
     }
 
     // ---------- Link pills ----------
